@@ -28,6 +28,7 @@ export function spawnGroup(monsterId, rng, isBoss = false) {
     id: isBoss ? 'boss' : monsterId,
     name: def.name,
     isBoss,
+    undead: !!def.undead,
     members,
     xpEach: def.xp,
     goldRange: def.gold,

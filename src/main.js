@@ -11,15 +11,16 @@ import {
   BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
   SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
   FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
+  MAGIC_SHOP_SPELL_MARKUP,
 } from './data.js';
 import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
 import { renderFPView } from './fpview.js';
 import { renderAutoMap, markExplored } from './automap.js';
 import { MessageLog } from './log.js';
-import { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp } from './party.js';
+import { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, schoolFor } from './party.js';
 import { spawnGroup, randomMonsterForTag, groupIsDefeated } from './monsters.js';
-import { spellsForSchool, findSpell, castSpell } from './spells.js';
+import { spellsForSchool, findSpell, castSpell, canCast } from './spells.js';
 import {
   startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn,
 } from './combat.js';
@@ -63,13 +64,17 @@ function setHtmlIfChanged(el, html) {
 const Game = { state: null };
 window.Game = Game;
 
-// WHAT: render a row of tappable choice buttons, each carrying the exact key
-// string handleKey() would receive from a keydown. WHY: this is the single
-// bridge between the panel text and touch input — a tap and the matching
-// keypress run through the identical dispatch, so there is only one set of
-// action rules to keep correct, not two.
+// WHAT: render choice buttons. Each pair is [key, label] or [key, label,
+// reasonIfDisabled]. WHY (dead-option guard): a genuinely disabled action
+// gets a real HTML `disabled` button — it cannot be clicked or tapped at
+// all, so "shown but does nothing" is structurally impossible, not just
+// discouraged by convention. The reason string becomes both the label
+// suffix and the hover/long-press tooltip.
 function choiceButtons(pairs) {
-  return pairs.map(([key, label]) => `<button type="button" class="choice-btn" data-key="${key}">${label}</button>`).join('');
+  return pairs.map(([key, label, reason]) => {
+    if (!reason) return `<button type="button" class="choice-btn" data-key="${key}">${label}</button>`;
+    return `<button type="button" class="choice-btn" disabled title="${reason}">${label} (${reason})</button>`;
+  }).join('');
 }
 
 function tagForDepth(depth) { return `dungeon${Math.min(depth, 3)}`; }
@@ -539,8 +544,8 @@ function handleCombatKey(key) {
     if (key === '1') { ui.phase = 'TARGET_GROUP'; ui.pendingAction = 'attack'; }
     else if (key === '2') {
       const actor = s.party.members[ui.actorIdx];
-      const spells = actor.knownSpells.map(findSpell).filter(Boolean);
-      if (!spells.length) { s.log.push(`${actor.name} knows no spells.`); return; }
+      const spells = combatEligibleSpells(actor);
+      if (!spells.length) return; // dead-option guard: the button is disabled in this state, not clickable
       ui.spellChoices = spells;
       ui.phase = 'SPELL_SELECT';
     } else if (key === '3') {
@@ -566,7 +571,7 @@ function handleCombatKey(key) {
     const spell = ui.spellChoices[idx];
     if (!spell) return;
     const actor = s.party.members[ui.actorIdx];
-    if (actor.sp < spell.spCost) { s.log.push(`${actor.name} lacks the SP for ${spell.name}.`); return; }
+    if (!canCast(actor, spell)) { s.log.push(`${actor.name} lacks the SP for ${spell.name}.`); return; }
     ui.spell = spell;
     if (spell.target === 'group') ui.phase = 'SPELL_TARGET_GROUP';
     else if (spell.target === 'ally') ui.phase = 'SPELL_TARGET_ALLY';
@@ -639,7 +644,7 @@ function handleShopKey(key) {
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
     else if (n > WEAPONS.length && n <= WEAPONS.length + ARMORS.length) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
   } else if (shop.type === 'MAGIC_SHOP') {
-    const school = c.cls === 'Sorcerer' ? 'sorcerer' : (c.cls === 'Cleric' || c.cls === 'Paladin') ? 'cleric' : null;
+    const school = schoolFor(c);
     if (school) {
       const n = parseInt(key, 10);
       const list = spellsForSchool(school);
@@ -704,7 +709,11 @@ function onTouchButton(e) {
 // ---------------------------------------------------------------------------
 
 function fieldEligibleSpells(character) {
-  return character.knownSpells.map(findSpell).filter((sp) => sp && sp.target !== 'group');
+  return character.knownSpells.map(findSpell).filter((sp) => sp && !sp.combatOnly && sp.target !== 'group');
+}
+
+function combatEligibleSpells(character) {
+  return character.knownSpells.map(findSpell).filter((sp) => sp && !sp.explorationOnly);
 }
 
 function openFieldCast() {
@@ -741,7 +750,7 @@ function handleFieldCastKey(key) {
     const spell = list[parseInt(key, 10) - 1];
     if (!spell) return;
     const caster = fieldCastCaster();
-    if (caster.sp < spell.spCost) { s.log.push(`${caster.name} lacks the SP for ${spell.name}.`); return; }
+    if (!canCast(caster, spell)) { s.log.push(`${caster.name} lacks the SP for ${spell.name}.`); return; }
     fc.spell = spell;
     if (spell.target === 'ally') { fc.phase = 'TARGET'; return; }
     castSpell(spell, { caster, party: s.party, log: s.log, rng: s.rng, state: s });
@@ -852,8 +861,13 @@ function renderCombat() {
   const ui = s.combatUI;
   let html = '';
   if (ui.phase === 'ACTION') {
-    html = `<b>${s.party.members[ui.actorIdx].name}'s turn</b><br/>` +
-      choiceButtons([['1', 'Attack'], ['2', 'Cast'], ['3', 'Block'], ['4', 'Run']]);
+    const actor = s.party.members[ui.actorIdx];
+    const castable = combatEligibleSpells(actor);
+    let castReason = null;
+    if (!castable.length) castReason = 'no spells known';
+    else if (!castable.some((sp) => canCast(actor, sp))) castReason = 'not enough SP';
+    html = `<b>${actor.name}'s turn</b><br/>` +
+      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run']]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
     html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name]));
   } else if (ui.phase === 'SPELL_SELECT') {
@@ -879,8 +893,18 @@ function renderShop() {
     html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
       choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
   } else if (s.shop.type === 'MAGIC_SHOP') {
-    const school = c.cls === 'Sorcerer' ? 'sorcerer' : (c.cls === 'Cleric' || c.cls === 'Paladin') ? 'cleric' : null;
-    html += school ? choiceButtons(spellsForSchool(school).map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost * 25}g)`])) : `${c.name} cannot learn spells.`;
+    const school = schoolFor(c);
+    if (!school) {
+      html += `${c.name} cannot learn spells.`;
+    } else {
+      html += choiceButtons(spellsForSchool(school).map((sp, i) => {
+        const label = `${sp.name} (L${sp.spellLevel}, ${sp.spCost * MAGIC_SHOP_SPELL_MARKUP}g)`;
+        if (c.knownSpells.includes(sp.id)) return [String(i + 1), label, 'known'];
+        if (c.level < sp.spellLevel) return [String(i + 1), label, `needs level ${sp.spellLevel}`];
+        if (s.party.gold < sp.spCost * MAGIC_SHOP_SPELL_MARKUP) return [String(i + 1), label, 'not enough gold'];
+        return [String(i + 1), label];
+      }));
+    }
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {

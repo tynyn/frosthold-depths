@@ -56,25 +56,29 @@ const SPECIAL_TRIGGER = {
 
 const STATS = ['might', 'intellect', 'personality', 'endurance', 'speed', 'accuracy', 'luck'];
 
+// WHAT: spellSchoolLevel is the character LEVEL at which a class gains
+// access to its spellSchool (and starts casting/learning at all). Pure
+// casters get it from level 1; hybrids (Paladin, Archer) get it delayed;
+// Knight/Robber never gain a school (spellSchool: null).
 const CLASSES = {
   Knight: {
     name: 'Knight', hitDie: 10, spellSchool: null, combatRole: 'melee',
     statMods: { might: 3, endurance: 2, accuracy: 1, intellect: -2, personality: -2 },
   },
   Paladin: {
-    name: 'Paladin', hitDie: 9, spellSchool: 'cleric', combatRole: 'melee',
+    name: 'Paladin', hitDie: 9, spellSchool: 'cleric', spellSchoolLevel: 3, combatRole: 'melee',
     statMods: { might: 2, endurance: 1, personality: 1 },
   },
   Archer: {
-    name: 'Archer', hitDie: 8, spellSchool: null, combatRole: 'ranged',
+    name: 'Archer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
     statMods: { accuracy: 3, speed: 2, might: -1 },
   },
   Cleric: {
-    name: 'Cleric', hitDie: 7, spellSchool: 'cleric', combatRole: 'support',
+    name: 'Cleric', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
     statMods: { personality: 3, endurance: 1, might: -2 },
   },
   Sorcerer: {
-    name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', combatRole: 'caster',
+    name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
     statMods: { intellect: 3, luck: 1, endurance: -2, might: -2 },
   },
   Robber: {
@@ -141,23 +145,32 @@ const UNARMED_DAMAGE = [1, 4]; // [min,max]
 // SPELLS
 // ---------------------------------------------------------------------------
 
+// WHAT: both spell schools, levels 1-3. Every field the spec asks for:
+// name, school, spellLevel, spCost, target, effect, combatOnly/
+// explorationOnly (omitted on either flag means usable both places),
+// description. "Light" exists once per school under a distinct id (ids
+// must be globally unique — findSpell() resolves by id across schools)
+// but shows the player the same spell name either way.
 const SPELLS = {
   cleric: [
-    { id: 'bless', name: 'Bless', level: 1, spCost: 2, target: 'party', effect: 'buff_ac', power: 2, duration: 5 },
-    { id: 'heal', name: 'Heal', level: 1, spCost: 3, target: 'ally', effect: 'heal', power: 8 },
-    { id: 'cure_poison', name: 'Cure Poison', level: 2, spCost: 3, target: 'ally', effect: 'cure', cures: ['POISONED'] },
-    { id: 'light', name: 'Light', level: 2, spCost: 2, target: 'self', effect: 'light', duration: 50 },
-    { id: 'protection', name: 'Protection', level: 3, spCost: 5, target: 'party', effect: 'buff_ac', power: 4, duration: 8 },
-    { id: 'greater_heal', name: 'Greater Heal', level: 4, spCost: 7, target: 'ally', effect: 'heal', power: 20 },
+    { id: 'heal', name: 'Heal', school: 'cleric', spellLevel: 1, spCost: 3, target: 'ally', effect: 'heal', power: 10, description: 'Restores hit points to one ally.' },
+    { id: 'bless', name: 'Bless', school: 'cleric', spellLevel: 1, spCost: 2, target: 'party', effect: 'buff_ac', power: 2, duration: 5, combatOnly: true, description: "Improves the whole party's AC for a few rounds." },
+    { id: 'cure_poison', name: 'Cure Poison', school: 'cleric', spellLevel: 2, spCost: 3, target: 'ally', effect: 'cure', cures: ['POISONED'], description: 'Cures poison in one ally.' },
+    { id: 'light', name: 'Light', school: 'cleric', spellLevel: 2, spCost: 2, target: 'self', effect: 'light', duration: 50, explorationOnly: true, description: 'Brightens the passage, countering Darkness zones.' },
+    { id: 'turn_undead', name: 'Turn Undead', school: 'cleric', spellLevel: 3, spCost: 5, target: 'group', effect: 'turn_undead', power: 8, combatOnly: true, description: 'Sears undead with holy power; has no effect on the living.' },
+    { id: 'awaken', name: 'Awaken', school: 'cleric', spellLevel: 3, spCost: 3, target: 'ally', effect: 'cure', cures: ['ASLEEP', 'UNCONSCIOUS'], description: 'Rouses a sleeping or unconscious ally.' },
   ],
   sorcerer: [
-    { id: 'sparks', name: 'Sparks', level: 1, spCost: 2, target: 'group', effect: 'damage', power: [2, 5] },
-    { id: 'firebolt', name: 'Firebolt', level: 2, spCost: 4, target: 'group', effect: 'damage', power: [4, 10] },
-    { id: 'sleep', name: 'Sleep', level: 2, spCost: 3, target: 'group', effect: 'condition', condition: 'ASLEEP' },
-    { id: 'shield', name: 'Shield', level: 3, spCost: 4, target: 'party', effect: 'buff_ac', power: 3, duration: 5 },
-    { id: 'lightning', name: 'Lightning Bolt', level: 4, spCost: 8, target: 'group', effect: 'damage', power: [10, 20] },
+    { id: 'magic_arrow', name: 'Magic Arrow', school: 'sorcerer', spellLevel: 1, spCost: 2, target: 'group', effect: 'damage', power: [3, 6], combatOnly: true, description: 'A bolt of raw force at one enemy group.' },
+    { id: 'detect_traps', name: 'Detect Traps', school: 'sorcerer', spellLevel: 1, spCost: 2, target: 'self', effect: 'detect_traps', explorationOnly: true, description: 'Senses traps in the adjacent cells.' },
+    { id: 'sleep', name: 'Sleep', school: 'sorcerer', spellLevel: 2, spCost: 3, target: 'group', effect: 'condition', condition: 'ASLEEP', combatOnly: true, description: 'Lulls an enemy group into slumber.' },
+    { id: 'flame_burst', name: 'Flame Burst', school: 'sorcerer', spellLevel: 2, spCost: 5, target: 'group', effect: 'damage', power: [6, 12], combatOnly: true, description: 'A burst of fire against one enemy group.' },
+    { id: 'shield', name: 'Shield', school: 'sorcerer', spellLevel: 3, spCost: 4, target: 'party', effect: 'buff_ac', power: 3, duration: 5, combatOnly: true, description: "Wraps the party in a force barrier, improving AC." },
+    { id: 'arcane_light', name: 'Light', school: 'sorcerer', spellLevel: 3, spCost: 3, target: 'self', effect: 'light', duration: 40, explorationOnly: true, description: 'Brightens the passage, countering Darkness zones.' },
   ],
 };
+
+const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel; // magic shop gate
 
 // ---------------------------------------------------------------------------
 // MONSTERS
@@ -166,12 +179,12 @@ const SPELLS = {
 const MONSTERS = {
   rat_swarm: { name: 'Giant Rat', hp: [3, 6], accuracy: 6, damage: [1, 3], ac: 8, speed: 12, xp: 5, gold: [0, 4], groupSize: [2, 5], tags: ['dungeon1', 'plains', 'forest'], inflicts: { condition: 'DISEASED', chance: 0.2 } },
   kobold: { name: 'Kobold', hp: [4, 9], accuracy: 8, damage: [1, 4], ac: 10, speed: 10, xp: 8, gold: [1, 6], groupSize: [2, 4], tags: ['dungeon1', 'hills'] },
-  skeleton: { name: 'Skeleton', hp: [6, 12], accuracy: 9, damage: [2, 5], ac: 12, speed: 8, xp: 12, gold: [0, 3], groupSize: [1, 4], tags: ['dungeon1', 'dungeon2'] },
+  skeleton: { name: 'Skeleton', hp: [6, 12], accuracy: 9, damage: [2, 5], ac: 12, speed: 8, xp: 12, gold: [0, 3], groupSize: [1, 4], tags: ['dungeon1', 'dungeon2'], undead: true },
   goblin: { name: 'Goblin', hp: [5, 10], accuracy: 8, damage: [1, 5], ac: 11, speed: 11, xp: 10, gold: [2, 8], groupSize: [2, 5], tags: ['forest', 'hills', 'dungeon1'] },
   bandit: { name: 'Bandit', hp: [8, 16], accuracy: 10, damage: [2, 6], ac: 12, speed: 10, xp: 16, gold: [4, 14], groupSize: [1, 3], tags: ['plains', 'swamp'] },
   giant_spider: { name: 'Giant Spider', hp: [10, 18], accuracy: 11, damage: [2, 7], ac: 12, speed: 13, xp: 22, gold: [0, 5], groupSize: [1, 3], tags: ['swamp', 'forest', 'dungeon2'], inflicts: { condition: 'POISONED', chance: 0.3 } },
   orc: { name: 'Orc', hp: [12, 22], accuracy: 11, damage: [3, 8], ac: 13, speed: 9, xp: 26, gold: [5, 16], groupSize: [1, 4], tags: ['hills', 'mountain', 'dungeon2'] },
-  ghoul: { name: 'Ghoul', hp: [14, 24], accuracy: 12, damage: [3, 9], ac: 14, speed: 10, xp: 32, gold: [2, 10], groupSize: [1, 3], tags: ['dungeon2', 'dungeon3', 'swamp'], inflicts: { condition: 'UNCONSCIOUS', chance: 0.2 } },
+  ghoul: { name: 'Ghoul', hp: [14, 24], accuracy: 12, damage: [3, 9], ac: 14, speed: 10, xp: 32, gold: [2, 10], groupSize: [1, 3], tags: ['dungeon2', 'dungeon3', 'swamp'], inflicts: { condition: 'UNCONSCIOUS', chance: 0.2 }, undead: true },
   troll: { name: 'Troll', hp: [24, 40], accuracy: 13, damage: [5, 12], ac: 15, speed: 7, xp: 60, gold: [10, 30], groupSize: [1, 2], tags: ['mountain', 'dungeon3'] },
   sand_wraith: { name: 'Sand Wraith', hp: [18, 30], accuracy: 13, damage: [4, 10], ac: 15, speed: 12, xp: 48, gold: [5, 20], groupSize: [1, 3], tags: ['desert', 'dungeon3'], inflicts: { condition: 'AFRAID', chance: 0.25 } },
 };
@@ -344,7 +357,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -923,7 +936,7 @@ function renderAutoMap(ctx, W, H, map, x, y, facing) {
 // WHY: centralizes HP/SP/AC/XP formulas so combat/services/training all
 // agree on how a character's numbers are computed.
 
-const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD } = __mod['data'];
+const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS } = __mod['data'];
 
 // WHAT: max HP for a character at their current level.
 function maxHp(character) {
@@ -931,12 +944,33 @@ function maxHp(character) {
   return HP_BASE + cls.hitDie + character.stats.endurance * HP_PER_ENDURANCE + (character.level - 1) * HP_PER_LEVEL;
 }
 
-// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
-function maxSp(character) {
+// WHAT: the spell school this character currently has access to, or null.
+// WHY: single source of truth for "can this character cast/learn spells" —
+// Paladin/Archer are hybrids who only unlock their school at a delayed
+// class-defined level (CLASSES[cls].spellSchoolLevel); Knight/Robber never do.
+function schoolFor(character) {
   const cls = CLASSES[character.cls];
-  if (!cls.spellSchool) return 0;
-  const stat = cls.spellSchool === 'sorcerer' ? character.stats.intellect : character.stats.personality;
+  if (!cls.spellSchool) return null;
+  if (character.level < (cls.spellSchoolLevel || 1)) return null;
+  return cls.spellSchool;
+}
+
+// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
+// Zero until the character actually has school access (see schoolFor).
+function maxSp(character) {
+  const school = schoolFor(character);
+  if (!school) return 0;
+  const stat = school === 'sorcerer' ? character.stats.intellect : character.stats.personality;
   return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL;
+}
+
+// WHAT: grant every level-1 spell of `school` the character doesn't already
+// know. WHY: shared by character creation (starting spells) and level-up
+// (a Paladin/Archer crossing their spellSchoolLevel threshold).
+function grantLevelOneSpells(character, school) {
+  for (const spell of SPELLS[school]) {
+    if (spell.spellLevel === 1 && !character.knownSpells.includes(spell.id)) character.knownSpells.push(spell.id);
+  }
 }
 
 // WHAT: armor class from equipped armor + Speed-derived dodge.
@@ -958,6 +992,8 @@ function createCharacter({ name, cls, stats }) {
     combatBuff: null,
   };
   c.maxHp = maxHp(c); c.hp = c.maxHp;
+  const school = schoolFor(c);
+  if (school) grantLevelOneSpells(c, school);
   c.maxSp = maxSp(c); c.sp = c.maxSp;
   c.ac = armorClass(c);
   return c;
@@ -990,10 +1026,13 @@ function canLevelUp(character) {
 }
 
 function levelUp(character) {
+  const schoolBefore = schoolFor(character);
   character.level += 1;
   const newMaxHp = maxHp(character);
   character.hp += Math.max(0, newMaxHp - character.maxHp);
   character.maxHp = newMaxHp;
+  const schoolAfter = schoolFor(character);
+  if (schoolAfter && !schoolBefore) grantLevelOneSpells(character, schoolAfter); // hybrid just unlocked their school
   const newMaxSp = maxSp(character);
   character.sp += Math.max(0, newMaxSp - character.maxSp);
   character.maxSp = newMaxSp;
@@ -1008,7 +1047,7 @@ function recomputeDerived(character) {
   character.sp = Math.min(character.sp, character.maxSp);
 }
 
-    return { maxHp, maxSp, armorClass, initiative, createCharacter, createDefaultParty, isAlive, isActive, grantXp, canLevelUp, levelUp, recomputeDerived };
+    return { maxHp, schoolFor, maxSp, armorClass, initiative, createCharacter, createDefaultParty, isAlive, isActive, grantXp, canLevelUp, levelUp, recomputeDerived };
   })();
 
   // ---- src/monsters.js ----
@@ -1043,6 +1082,7 @@ function spawnGroup(monsterId, rng, isBoss = false) {
     id: isBoss ? 'boss' : monsterId,
     name: def.name,
     isBoss,
+    undead: !!def.undead,
     members,
     xpEach: def.xp,
     goldRange: def.gold,
@@ -1069,7 +1109,7 @@ function groupIsDefeated(group) { return groupAliveCount(group) === 0; }
 // WHY: combat.js and the field (Heal outside combat, Light in dungeons) both
 // need a single place that knows what a spell id does.
 
-const { SPELLS, CONDITIONS } = __mod['data'];
+const { SPELLS, CONDITIONS, DELTA } = __mod['data'];
 const { recomputeDerived } = __mod['party'];
 
 function spellsForSchool(school) { return SPELLS[school] || []; }
@@ -1128,13 +1168,10 @@ function castSpell(spell, ctx) {
     case 'damage': {
       const [lo, hi] = spell.power;
       const dmg = ctx.rng ? ctx.rng.int(lo, hi) : lo + Math.floor(Math.random() * (hi - lo + 1));
-      let killed = 0;
-      let remaining = dmg;
       for (const mon of ctx.targetGroup.members) {
         if (mon.hp <= 0) continue;
-        mon.hp -= remaining;
-        if (mon.hp <= 0) killed++;
-        break; // sparks/firebolt/lightning hit one monster in the group per spec's group-target model
+        mon.hp -= dmg;
+        break; // magic arrow/flame burst hit one monster in the group per spec's group-target model
       }
       ctx.log?.push(`${ctx.caster.name} casts ${spell.name} at the ${ctx.targetGroup.name} for ${dmg} damage.`);
       break;
@@ -1144,6 +1181,30 @@ function castSpell(spell, ctx) {
         if (mon.hp > 0) mon.condition = spell.condition;
       }
       ctx.log?.push(`${ctx.caster.name} casts ${spell.name} on the ${ctx.targetGroup.name}.`);
+      break;
+    }
+    case 'turn_undead': {
+      if (!ctx.targetGroup.undead) {
+        ctx.log?.push(`${ctx.caster.name} casts ${spell.name}, but the ${ctx.targetGroup.name} is unaffected.`);
+        break;
+      }
+      for (const mon of ctx.targetGroup.members) if (mon.hp > 0) mon.hp -= spell.power;
+      ctx.log?.push(`${ctx.caster.name} casts ${spell.name} — holy power sears the ${ctx.targetGroup.name}!`);
+      break;
+    }
+    case 'detect_traps': {
+      if (!ctx.state) { ctx.log?.push(`${ctx.caster.name} casts ${spell.name}, but senses nothing here.`); break; }
+      const { map, x, y } = ctx.state;
+      const found = [];
+      for (const dir of ['N', 'E', 'S', 'W']) {
+        if (!map.isPassable(x, y, dir)) continue;
+        const { dx, dy } = DELTA[dir];
+        const cell = map.cellAt(x + dx, y + dy);
+        if (cell?.special?.type === 'DAMAGE_TRAP') found.push(dir);
+      }
+      ctx.log?.push(found.length
+        ? `${ctx.caster.name} senses a trap to the ${found.join(', ')}.`
+        : `${ctx.caster.name} senses no traps nearby.`);
       break;
     }
     default: break;
@@ -1391,7 +1452,7 @@ function performMonsterTurn(combat, party, groupIdx) {
 // place instead of scattered across town.js tile handlers.
 
 const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS } = __mod['data'];
-const { recomputeDerived, canLevelUp, levelUp, isAlive } = __mod['party'];
+const { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } = __mod['party'];
 
 // ---------------------------------------------------------------------------
 // TEMPLE
@@ -1505,12 +1566,12 @@ function buyArmor(party, character, armorId) {
 // ---------------------------------------------------------------------------
 
 function learnSpell(party, character, spellId) {
-  const school = ['Cleric', 'Paladin'].includes(character.cls) ? 'cleric'
-    : character.cls === 'Sorcerer' ? 'sorcerer' : null;
+  const school = schoolFor(character);
   if (!school) return { success: false, message: `${character.name} cannot cast spells.` };
   const spell = SPELLS[school].find((s) => s.id === spellId);
   if (!spell) return { success: false, message: 'No such spell.' };
   if (character.knownSpells.includes(spellId)) return { success: false, message: `${character.name} already knows ${spell.name}.` };
+  if (character.level < spell.spellLevel) return { success: false, message: `${character.name} must be level ${spell.spellLevel} to learn ${spell.name}.` };
   const cost = spell.spCost * MAGIC_SHOP_SPELL_MARKUP;
   if (party.gold < cost) return { success: false, message: `${spell.name} costs ${cost} gold.` };
   party.gold -= cost;
@@ -2100,15 +2161,15 @@ function encounterChanceForCell(map, x, y) {
 // no module here re-implements movement or rendering — it only calls the
 // one shared gridmap/fpview primitives.
 
-const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE } = __mod['data'];
+const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP } = __mod['data'];
 const { RNG, hashString } = __mod['rng'];
 const { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } = __mod['gridmap'];
 const { renderFPView } = __mod['fpview'];
 const { renderAutoMap, markExplored } = __mod['automap'];
 const { MessageLog } = __mod['log'];
-const { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp } = __mod['party'];
+const { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, schoolFor } = __mod['party'];
 const { spawnGroup, randomMonsterForTag, groupIsDefeated } = __mod['monsters'];
-const { spellsForSchool, findSpell, castSpell } = __mod['spells'];
+const { spellsForSchool, findSpell, castSpell, canCast } = __mod['spells'];
 const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn } = __mod['combat'];
 const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, RUMORS } = __mod['services'];
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
@@ -2147,13 +2208,17 @@ function setHtmlIfChanged(el, html) {
 const Game = { state: null };
 window.Game = Game;
 
-// WHAT: render a row of tappable choice buttons, each carrying the exact key
-// string handleKey() would receive from a keydown. WHY: this is the single
-// bridge between the panel text and touch input — a tap and the matching
-// keypress run through the identical dispatch, so there is only one set of
-// action rules to keep correct, not two.
+// WHAT: render choice buttons. Each pair is [key, label] or [key, label,
+// reasonIfDisabled]. WHY (dead-option guard): a genuinely disabled action
+// gets a real HTML `disabled` button — it cannot be clicked or tapped at
+// all, so "shown but does nothing" is structurally impossible, not just
+// discouraged by convention. The reason string becomes both the label
+// suffix and the hover/long-press tooltip.
 function choiceButtons(pairs) {
-  return pairs.map(([key, label]) => `<button type="button" class="choice-btn" data-key="${key}">${label}</button>`).join('');
+  return pairs.map(([key, label, reason]) => {
+    if (!reason) return `<button type="button" class="choice-btn" data-key="${key}">${label}</button>`;
+    return `<button type="button" class="choice-btn" disabled title="${reason}">${label} (${reason})</button>`;
+  }).join('');
 }
 
 function tagForDepth(depth) { return `dungeon${Math.min(depth, 3)}`; }
@@ -2623,8 +2688,8 @@ function handleCombatKey(key) {
     if (key === '1') { ui.phase = 'TARGET_GROUP'; ui.pendingAction = 'attack'; }
     else if (key === '2') {
       const actor = s.party.members[ui.actorIdx];
-      const spells = actor.knownSpells.map(findSpell).filter(Boolean);
-      if (!spells.length) { s.log.push(`${actor.name} knows no spells.`); return; }
+      const spells = combatEligibleSpells(actor);
+      if (!spells.length) return; // dead-option guard: the button is disabled in this state, not clickable
       ui.spellChoices = spells;
       ui.phase = 'SPELL_SELECT';
     } else if (key === '3') {
@@ -2650,7 +2715,7 @@ function handleCombatKey(key) {
     const spell = ui.spellChoices[idx];
     if (!spell) return;
     const actor = s.party.members[ui.actorIdx];
-    if (actor.sp < spell.spCost) { s.log.push(`${actor.name} lacks the SP for ${spell.name}.`); return; }
+    if (!canCast(actor, spell)) { s.log.push(`${actor.name} lacks the SP for ${spell.name}.`); return; }
     ui.spell = spell;
     if (spell.target === 'group') ui.phase = 'SPELL_TARGET_GROUP';
     else if (spell.target === 'ally') ui.phase = 'SPELL_TARGET_ALLY';
@@ -2723,7 +2788,7 @@ function handleShopKey(key) {
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
     else if (n > WEAPONS.length && n <= WEAPONS.length + ARMORS.length) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
   } else if (shop.type === 'MAGIC_SHOP') {
-    const school = c.cls === 'Sorcerer' ? 'sorcerer' : (c.cls === 'Cleric' || c.cls === 'Paladin') ? 'cleric' : null;
+    const school = schoolFor(c);
     if (school) {
       const n = parseInt(key, 10);
       const list = spellsForSchool(school);
@@ -2788,7 +2853,11 @@ function onTouchButton(e) {
 // ---------------------------------------------------------------------------
 
 function fieldEligibleSpells(character) {
-  return character.knownSpells.map(findSpell).filter((sp) => sp && sp.target !== 'group');
+  return character.knownSpells.map(findSpell).filter((sp) => sp && !sp.combatOnly && sp.target !== 'group');
+}
+
+function combatEligibleSpells(character) {
+  return character.knownSpells.map(findSpell).filter((sp) => sp && !sp.explorationOnly);
 }
 
 function openFieldCast() {
@@ -2825,7 +2894,7 @@ function handleFieldCastKey(key) {
     const spell = list[parseInt(key, 10) - 1];
     if (!spell) return;
     const caster = fieldCastCaster();
-    if (caster.sp < spell.spCost) { s.log.push(`${caster.name} lacks the SP for ${spell.name}.`); return; }
+    if (!canCast(caster, spell)) { s.log.push(`${caster.name} lacks the SP for ${spell.name}.`); return; }
     fc.spell = spell;
     if (spell.target === 'ally') { fc.phase = 'TARGET'; return; }
     castSpell(spell, { caster, party: s.party, log: s.log, rng: s.rng, state: s });
@@ -2936,8 +3005,13 @@ function renderCombat() {
   const ui = s.combatUI;
   let html = '';
   if (ui.phase === 'ACTION') {
-    html = `<b>${s.party.members[ui.actorIdx].name}'s turn</b><br/>` +
-      choiceButtons([['1', 'Attack'], ['2', 'Cast'], ['3', 'Block'], ['4', 'Run']]);
+    const actor = s.party.members[ui.actorIdx];
+    const castable = combatEligibleSpells(actor);
+    let castReason = null;
+    if (!castable.length) castReason = 'no spells known';
+    else if (!castable.some((sp) => canCast(actor, sp))) castReason = 'not enough SP';
+    html = `<b>${actor.name}'s turn</b><br/>` +
+      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run']]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
     html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name]));
   } else if (ui.phase === 'SPELL_SELECT') {
@@ -2963,8 +3037,18 @@ function renderShop() {
     html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
       choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
   } else if (s.shop.type === 'MAGIC_SHOP') {
-    const school = c.cls === 'Sorcerer' ? 'sorcerer' : (c.cls === 'Cleric' || c.cls === 'Paladin') ? 'cleric' : null;
-    html += school ? choiceButtons(spellsForSchool(school).map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost * 25}g)`])) : `${c.name} cannot learn spells.`;
+    const school = schoolFor(c);
+    if (!school) {
+      html += `${c.name} cannot learn spells.`;
+    } else {
+      html += choiceButtons(spellsForSchool(school).map((sp, i) => {
+        const label = `${sp.name} (L${sp.spellLevel}, ${sp.spCost * MAGIC_SHOP_SPELL_MARKUP}g)`;
+        if (c.knownSpells.includes(sp.id)) return [String(i + 1), label, 'known'];
+        if (c.level < sp.spellLevel) return [String(i + 1), label, `needs level ${sp.spellLevel}`];
+        if (s.party.gold < sp.spCost * MAGIC_SHOP_SPELL_MARKUP) return [String(i + 1), label, 'not enough gold'];
+        return [String(i + 1), label];
+      }));
+    }
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {

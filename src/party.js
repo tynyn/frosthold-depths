@@ -6,7 +6,7 @@
 import {
   CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL,
   SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL,
-  STARTING_GOLD, STARTING_GEMS, STARTING_FOOD,
+  STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS,
 } from './data.js';
 
 // WHAT: max HP for a character at their current level.
@@ -15,12 +15,33 @@ export function maxHp(character) {
   return HP_BASE + cls.hitDie + character.stats.endurance * HP_PER_ENDURANCE + (character.level - 1) * HP_PER_LEVEL;
 }
 
-// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
-export function maxSp(character) {
+// WHAT: the spell school this character currently has access to, or null.
+// WHY: single source of truth for "can this character cast/learn spells" —
+// Paladin/Archer are hybrids who only unlock their school at a delayed
+// class-defined level (CLASSES[cls].spellSchoolLevel); Knight/Robber never do.
+export function schoolFor(character) {
   const cls = CLASSES[character.cls];
-  if (!cls.spellSchool) return 0;
-  const stat = cls.spellSchool === 'sorcerer' ? character.stats.intellect : character.stats.personality;
+  if (!cls.spellSchool) return null;
+  if (character.level < (cls.spellSchoolLevel || 1)) return null;
+  return cls.spellSchool;
+}
+
+// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
+// Zero until the character actually has school access (see schoolFor).
+export function maxSp(character) {
+  const school = schoolFor(character);
+  if (!school) return 0;
+  const stat = school === 'sorcerer' ? character.stats.intellect : character.stats.personality;
   return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL;
+}
+
+// WHAT: grant every level-1 spell of `school` the character doesn't already
+// know. WHY: shared by character creation (starting spells) and level-up
+// (a Paladin/Archer crossing their spellSchoolLevel threshold).
+function grantLevelOneSpells(character, school) {
+  for (const spell of SPELLS[school]) {
+    if (spell.spellLevel === 1 && !character.knownSpells.includes(spell.id)) character.knownSpells.push(spell.id);
+  }
 }
 
 // WHAT: armor class from equipped armor + Speed-derived dodge.
@@ -42,6 +63,8 @@ export function createCharacter({ name, cls, stats }) {
     combatBuff: null,
   };
   c.maxHp = maxHp(c); c.hp = c.maxHp;
+  const school = schoolFor(c);
+  if (school) grantLevelOneSpells(c, school);
   c.maxSp = maxSp(c); c.sp = c.maxSp;
   c.ac = armorClass(c);
   return c;
@@ -74,10 +97,13 @@ export function canLevelUp(character) {
 }
 
 export function levelUp(character) {
+  const schoolBefore = schoolFor(character);
   character.level += 1;
   const newMaxHp = maxHp(character);
   character.hp += Math.max(0, newMaxHp - character.maxHp);
   character.maxHp = newMaxHp;
+  const schoolAfter = schoolFor(character);
+  if (schoolAfter && !schoolBefore) grantLevelOneSpells(character, schoolAfter); // hybrid just unlocked their school
   const newMaxSp = maxSp(character);
   character.sp += Math.max(0, newMaxSp - character.maxSp);
   character.maxSp = newMaxSp;

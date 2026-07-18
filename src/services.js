@@ -7,7 +7,7 @@ import {
   TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL,
   MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS,
 } from './data.js';
-import { recomputeDerived, canLevelUp, levelUp, isAlive } from './party.js';
+import { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } from './party.js';
 
 // ---------------------------------------------------------------------------
 // TEMPLE
@@ -121,12 +121,12 @@ export function buyArmor(party, character, armorId) {
 // ---------------------------------------------------------------------------
 
 export function learnSpell(party, character, spellId) {
-  const school = ['Cleric', 'Paladin'].includes(character.cls) ? 'cleric'
-    : character.cls === 'Sorcerer' ? 'sorcerer' : null;
+  const school = schoolFor(character);
   if (!school) return { success: false, message: `${character.name} cannot cast spells.` };
   const spell = SPELLS[school].find((s) => s.id === spellId);
   if (!spell) return { success: false, message: 'No such spell.' };
   if (character.knownSpells.includes(spellId)) return { success: false, message: `${character.name} already knows ${spell.name}.` };
+  if (character.level < spell.spellLevel) return { success: false, message: `${character.name} must be level ${spell.spellLevel} to learn ${spell.name}.` };
   const cost = spell.spCost * MAGIC_SHOP_SPELL_MARKUP;
   if (party.gold < cost) return { success: false, message: `${spell.name} costs ${cost} gold.` };
   party.gold -= cost;

@@ -3,7 +3,7 @@
 // WHY: combat.js and the field (Heal outside combat, Light in dungeons) both
 // need a single place that knows what a spell id does.
 
-import { SPELLS, CONDITIONS } from './data.js';
+import { SPELLS, CONDITIONS, DELTA } from './data.js';
 import { recomputeDerived } from './party.js';
 
 export function spellsForSchool(school) { return SPELLS[school] || []; }
@@ -62,13 +62,10 @@ export function castSpell(spell, ctx) {
     case 'damage': {
       const [lo, hi] = spell.power;
       const dmg = ctx.rng ? ctx.rng.int(lo, hi) : lo + Math.floor(Math.random() * (hi - lo + 1));
-      let killed = 0;
-      let remaining = dmg;
       for (const mon of ctx.targetGroup.members) {
         if (mon.hp <= 0) continue;
-        mon.hp -= remaining;
-        if (mon.hp <= 0) killed++;
-        break; // sparks/firebolt/lightning hit one monster in the group per spec's group-target model
+        mon.hp -= dmg;
+        break; // magic arrow/flame burst hit one monster in the group per spec's group-target model
       }
       ctx.log?.push(`${ctx.caster.name} casts ${spell.name} at the ${ctx.targetGroup.name} for ${dmg} damage.`);
       break;
@@ -78,6 +75,30 @@ export function castSpell(spell, ctx) {
         if (mon.hp > 0) mon.condition = spell.condition;
       }
       ctx.log?.push(`${ctx.caster.name} casts ${spell.name} on the ${ctx.targetGroup.name}.`);
+      break;
+    }
+    case 'turn_undead': {
+      if (!ctx.targetGroup.undead) {
+        ctx.log?.push(`${ctx.caster.name} casts ${spell.name}, but the ${ctx.targetGroup.name} is unaffected.`);
+        break;
+      }
+      for (const mon of ctx.targetGroup.members) if (mon.hp > 0) mon.hp -= spell.power;
+      ctx.log?.push(`${ctx.caster.name} casts ${spell.name} — holy power sears the ${ctx.targetGroup.name}!`);
+      break;
+    }
+    case 'detect_traps': {
+      if (!ctx.state) { ctx.log?.push(`${ctx.caster.name} casts ${spell.name}, but senses nothing here.`); break; }
+      const { map, x, y } = ctx.state;
+      const found = [];
+      for (const dir of ['N', 'E', 'S', 'W']) {
+        if (!map.isPassable(x, y, dir)) continue;
+        const { dx, dy } = DELTA[dir];
+        const cell = map.cellAt(x + dx, y + dy);
+        if (cell?.special?.type === 'DAMAGE_TRAP') found.push(dir);
+      }
+      ctx.log?.push(found.length
+        ? `${ctx.caster.name} senses a trap to the ${found.join(', ')}.`
+        : `${ctx.caster.name} senses no traps nearby.`);
       break;
     }
     default: break;

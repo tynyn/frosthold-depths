@@ -48,25 +48,29 @@ export const SPECIAL_TRIGGER = {
 
 export const STATS = ['might', 'intellect', 'personality', 'endurance', 'speed', 'accuracy', 'luck'];
 
+// WHAT: spellSchoolLevel is the character LEVEL at which a class gains
+// access to its spellSchool (and starts casting/learning at all). Pure
+// casters get it from level 1; hybrids (Paladin, Archer) get it delayed;
+// Knight/Robber never gain a school (spellSchool: null).
 export const CLASSES = {
   Knight: {
     name: 'Knight', hitDie: 10, spellSchool: null, combatRole: 'melee',
     statMods: { might: 3, endurance: 2, accuracy: 1, intellect: -2, personality: -2 },
   },
   Paladin: {
-    name: 'Paladin', hitDie: 9, spellSchool: 'cleric', combatRole: 'melee',
+    name: 'Paladin', hitDie: 9, spellSchool: 'cleric', spellSchoolLevel: 3, combatRole: 'melee',
     statMods: { might: 2, endurance: 1, personality: 1 },
   },
   Archer: {
-    name: 'Archer', hitDie: 8, spellSchool: null, combatRole: 'ranged',
+    name: 'Archer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
     statMods: { accuracy: 3, speed: 2, might: -1 },
   },
   Cleric: {
-    name: 'Cleric', hitDie: 7, spellSchool: 'cleric', combatRole: 'support',
+    name: 'Cleric', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
     statMods: { personality: 3, endurance: 1, might: -2 },
   },
   Sorcerer: {
-    name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', combatRole: 'caster',
+    name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
     statMods: { intellect: 3, luck: 1, endurance: -2, might: -2 },
   },
   Robber: {
@@ -133,23 +137,32 @@ export const UNARMED_DAMAGE = [1, 4]; // [min,max]
 // SPELLS
 // ---------------------------------------------------------------------------
 
+// WHAT: both spell schools, levels 1-3. Every field the spec asks for:
+// name, school, spellLevel, spCost, target, effect, combatOnly/
+// explorationOnly (omitted on either flag means usable both places),
+// description. "Light" exists once per school under a distinct id (ids
+// must be globally unique — findSpell() resolves by id across schools)
+// but shows the player the same spell name either way.
 export const SPELLS = {
   cleric: [
-    { id: 'bless', name: 'Bless', level: 1, spCost: 2, target: 'party', effect: 'buff_ac', power: 2, duration: 5 },
-    { id: 'heal', name: 'Heal', level: 1, spCost: 3, target: 'ally', effect: 'heal', power: 8 },
-    { id: 'cure_poison', name: 'Cure Poison', level: 2, spCost: 3, target: 'ally', effect: 'cure', cures: ['POISONED'] },
-    { id: 'light', name: 'Light', level: 2, spCost: 2, target: 'self', effect: 'light', duration: 50 },
-    { id: 'protection', name: 'Protection', level: 3, spCost: 5, target: 'party', effect: 'buff_ac', power: 4, duration: 8 },
-    { id: 'greater_heal', name: 'Greater Heal', level: 4, spCost: 7, target: 'ally', effect: 'heal', power: 20 },
+    { id: 'heal', name: 'Heal', school: 'cleric', spellLevel: 1, spCost: 3, target: 'ally', effect: 'heal', power: 10, description: 'Restores hit points to one ally.' },
+    { id: 'bless', name: 'Bless', school: 'cleric', spellLevel: 1, spCost: 2, target: 'party', effect: 'buff_ac', power: 2, duration: 5, combatOnly: true, description: "Improves the whole party's AC for a few rounds." },
+    { id: 'cure_poison', name: 'Cure Poison', school: 'cleric', spellLevel: 2, spCost: 3, target: 'ally', effect: 'cure', cures: ['POISONED'], description: 'Cures poison in one ally.' },
+    { id: 'light', name: 'Light', school: 'cleric', spellLevel: 2, spCost: 2, target: 'self', effect: 'light', duration: 50, explorationOnly: true, description: 'Brightens the passage, countering Darkness zones.' },
+    { id: 'turn_undead', name: 'Turn Undead', school: 'cleric', spellLevel: 3, spCost: 5, target: 'group', effect: 'turn_undead', power: 8, combatOnly: true, description: 'Sears undead with holy power; has no effect on the living.' },
+    { id: 'awaken', name: 'Awaken', school: 'cleric', spellLevel: 3, spCost: 3, target: 'ally', effect: 'cure', cures: ['ASLEEP', 'UNCONSCIOUS'], description: 'Rouses a sleeping or unconscious ally.' },
   ],
   sorcerer: [
-    { id: 'sparks', name: 'Sparks', level: 1, spCost: 2, target: 'group', effect: 'damage', power: [2, 5] },
-    { id: 'firebolt', name: 'Firebolt', level: 2, spCost: 4, target: 'group', effect: 'damage', power: [4, 10] },
-    { id: 'sleep', name: 'Sleep', level: 2, spCost: 3, target: 'group', effect: 'condition', condition: 'ASLEEP' },
-    { id: 'shield', name: 'Shield', level: 3, spCost: 4, target: 'party', effect: 'buff_ac', power: 3, duration: 5 },
-    { id: 'lightning', name: 'Lightning Bolt', level: 4, spCost: 8, target: 'group', effect: 'damage', power: [10, 20] },
+    { id: 'magic_arrow', name: 'Magic Arrow', school: 'sorcerer', spellLevel: 1, spCost: 2, target: 'group', effect: 'damage', power: [3, 6], combatOnly: true, description: 'A bolt of raw force at one enemy group.' },
+    { id: 'detect_traps', name: 'Detect Traps', school: 'sorcerer', spellLevel: 1, spCost: 2, target: 'self', effect: 'detect_traps', explorationOnly: true, description: 'Senses traps in the adjacent cells.' },
+    { id: 'sleep', name: 'Sleep', school: 'sorcerer', spellLevel: 2, spCost: 3, target: 'group', effect: 'condition', condition: 'ASLEEP', combatOnly: true, description: 'Lulls an enemy group into slumber.' },
+    { id: 'flame_burst', name: 'Flame Burst', school: 'sorcerer', spellLevel: 2, spCost: 5, target: 'group', effect: 'damage', power: [6, 12], combatOnly: true, description: 'A burst of fire against one enemy group.' },
+    { id: 'shield', name: 'Shield', school: 'sorcerer', spellLevel: 3, spCost: 4, target: 'party', effect: 'buff_ac', power: 3, duration: 5, combatOnly: true, description: "Wraps the party in a force barrier, improving AC." },
+    { id: 'arcane_light', name: 'Light', school: 'sorcerer', spellLevel: 3, spCost: 3, target: 'self', effect: 'light', duration: 40, explorationOnly: true, description: 'Brightens the passage, countering Darkness zones.' },
   ],
 };
+
+export const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel; // magic shop gate
 
 // ---------------------------------------------------------------------------
 // MONSTERS
@@ -158,12 +171,12 @@ export const SPELLS = {
 export const MONSTERS = {
   rat_swarm: { name: 'Giant Rat', hp: [3, 6], accuracy: 6, damage: [1, 3], ac: 8, speed: 12, xp: 5, gold: [0, 4], groupSize: [2, 5], tags: ['dungeon1', 'plains', 'forest'], inflicts: { condition: 'DISEASED', chance: 0.2 } },
   kobold: { name: 'Kobold', hp: [4, 9], accuracy: 8, damage: [1, 4], ac: 10, speed: 10, xp: 8, gold: [1, 6], groupSize: [2, 4], tags: ['dungeon1', 'hills'] },
-  skeleton: { name: 'Skeleton', hp: [6, 12], accuracy: 9, damage: [2, 5], ac: 12, speed: 8, xp: 12, gold: [0, 3], groupSize: [1, 4], tags: ['dungeon1', 'dungeon2'] },
+  skeleton: { name: 'Skeleton', hp: [6, 12], accuracy: 9, damage: [2, 5], ac: 12, speed: 8, xp: 12, gold: [0, 3], groupSize: [1, 4], tags: ['dungeon1', 'dungeon2'], undead: true },
   goblin: { name: 'Goblin', hp: [5, 10], accuracy: 8, damage: [1, 5], ac: 11, speed: 11, xp: 10, gold: [2, 8], groupSize: [2, 5], tags: ['forest', 'hills', 'dungeon1'] },
   bandit: { name: 'Bandit', hp: [8, 16], accuracy: 10, damage: [2, 6], ac: 12, speed: 10, xp: 16, gold: [4, 14], groupSize: [1, 3], tags: ['plains', 'swamp'] },
   giant_spider: { name: 'Giant Spider', hp: [10, 18], accuracy: 11, damage: [2, 7], ac: 12, speed: 13, xp: 22, gold: [0, 5], groupSize: [1, 3], tags: ['swamp', 'forest', 'dungeon2'], inflicts: { condition: 'POISONED', chance: 0.3 } },
   orc: { name: 'Orc', hp: [12, 22], accuracy: 11, damage: [3, 8], ac: 13, speed: 9, xp: 26, gold: [5, 16], groupSize: [1, 4], tags: ['hills', 'mountain', 'dungeon2'] },
-  ghoul: { name: 'Ghoul', hp: [14, 24], accuracy: 12, damage: [3, 9], ac: 14, speed: 10, xp: 32, gold: [2, 10], groupSize: [1, 3], tags: ['dungeon2', 'dungeon3', 'swamp'], inflicts: { condition: 'UNCONSCIOUS', chance: 0.2 } },
+  ghoul: { name: 'Ghoul', hp: [14, 24], accuracy: 12, damage: [3, 9], ac: 14, speed: 10, xp: 32, gold: [2, 10], groupSize: [1, 3], tags: ['dungeon2', 'dungeon3', 'swamp'], inflicts: { condition: 'UNCONSCIOUS', chance: 0.2 }, undead: true },
   troll: { name: 'Troll', hp: [24, 40], accuracy: 13, damage: [5, 12], ac: 15, speed: 7, xp: 60, gold: [10, 30], groupSize: [1, 2], tags: ['mountain', 'dungeon3'] },
   sand_wraith: { name: 'Sand Wraith', hp: [18, 30], accuracy: 13, damage: [4, 10], ac: 15, speed: 12, xp: 48, gold: [5, 20], groupSize: [1, 3], tags: ['desert', 'dungeon3'], inflicts: { condition: 'AFRAID', chance: 0.25 } },
 };
