@@ -45,9 +45,33 @@ const combatPanel = document.getElementById('combat-panel');
 const shopPanel = document.getElementById('shop-panel');
 const castPanel = document.getElementById('cast-panel');
 const overlayEl = document.getElementById('overlay');
+const touchControlsEl = document.getElementById('touch-controls');
+
+// WHAT: replace an element's innerHTML only when the markup actually
+// changed. WHY: render() runs every animation frame, but combat/shop/cast
+// panels now hold real <button> elements — rewriting them unconditionally
+// at 60fps destroys and recreates every button that often, which a mouse
+// click usually outruns but a touch tap (a slower, multi-event gesture)
+// can land mid-swap and silently miss. Panels only need to change when
+// their content does.
+const _lastHtml = new WeakMap();
+function setHtmlIfChanged(el, html) {
+  if (_lastHtml.get(el) === html) return;
+  _lastHtml.set(el, html);
+  el.innerHTML = html;
+}
 
 const Game = { state: null };
 window.Game = Game;
+
+// WHAT: render a row of tappable choice buttons, each carrying the exact key
+// string handleKey() would receive from a keydown. WHY: this is the single
+// bridge between the panel text and touch input — a tap and the matching
+// keypress run through the identical dispatch, so there is only one set of
+// action rules to keep correct, not two.
+function choiceButtons(pairs) {
+  return pairs.map(([key, label]) => `<button type="button" class="choice-btn" data-key="${key}">${label}</button>`).join('');
+}
 
 function tagForDepth(depth) { return `dungeon${Math.min(depth, 3)}`; }
 function numGroupsForDepth(depth, rng) {
@@ -91,6 +115,7 @@ function boot() {
   log.push('Arrows/WASD move+turn, Space/Enter interact, M automap.');
 
   window.addEventListener('keydown', onKeyDown);
+  document.body.addEventListener('click', onTouchButton);
   requestAnimationFrame(loop);
 }
 
@@ -599,15 +624,20 @@ function handleShopKey(key) {
 // INPUT ROUTER
 // ---------------------------------------------------------------------------
 
-function onKeyDown(e) {
+// WHAT: the one input router, driven by a key STRING rather than a
+// KeyboardEvent. WHY: this lets a tap on an on-screen button feed the exact
+// same dispatch a keypress does — touch is a second input SOURCE, never a
+// second set of rules. onKeyDown and the touch-button click handler are the
+// only two callers.
+function handleKey(key) {
   const s = Game.state;
-  if (s.mode === 'DEAD') { if (e.key === 'Enter' || e.key === ' ') restartFromTown(); return; }
-  if (s.mode === 'VICTORY') { if (e.key === 'Enter' || e.key === ' ') { s.mode = 'FIELD'; } return; }
-  if (s.mode === 'COMBAT') { handleCombatKey(e.key); return; }
-  if (s.mode === 'SHOP') { handleShopKey(e.key); return; }
-  if (s.mode === 'CAST') { handleFieldCastKey(e.key); return; }
+  if (s.mode === 'DEAD') { if (key === 'Enter' || key === ' ') restartFromTown(); return; }
+  if (s.mode === 'VICTORY') { if (key === 'Enter' || key === ' ') { s.mode = 'FIELD'; } return; }
+  if (s.mode === 'COMBAT') { handleCombatKey(key); return; }
+  if (s.mode === 'SHOP') { handleShopKey(key); return; }
+  if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
 
-  switch (e.key) {
+  switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
     case 'ArrowDown': case 's': case 'S': step('B'); break;
     case 'ArrowLeft': case 'a': case 'A': rotate('L'); break;
@@ -619,6 +649,18 @@ function onKeyDown(e) {
     case 'c': case 'C': openFieldCast(); break;
     default: break;
   }
+}
+
+function onKeyDown(e) { handleKey(e.key); }
+
+// WHAT: one delegated click/tap listener for the whole document. WHY: every
+// on-screen control (D-pad, combat/shop/cast choice buttons, the D-pad's
+// action row, the death/victory continue button) is just a button carrying
+// data-key — this is the only place touch input enters the game.
+function onTouchButton(e) {
+  const btn = e.target.closest('[data-key]');
+  if (!btn) return;
+  handleKey(btn.dataset.key);
 }
 
 // ---------------------------------------------------------------------------
@@ -687,15 +729,15 @@ function handleFieldCastKey(key) {
 
 function renderRoster() {
   const s = Game.state;
-  rosterEl.innerHTML = s.party.members.map((c, i) => {
+  const html = s.party.members.map((c, i) => {
     const dead = c.conditions.includes('DEAD');
     const cond = c.conditions.filter((x) => x !== 'DEAD').join(',');
     return `<div class="hero${dead ? ' dead' : ''}${s.mode === 'COMBAT' && s.combatUI.actorIdx === i ? ' active' : ''}">
       <b>${i + 1}. ${c.name}</b> Lv${c.level} ${c.cls}<br/>
       HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}
     </div>`;
-  }).join('');
-  rosterEl.innerHTML += `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>`;
+  }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>`;
+  setHtmlIfChanged(rosterEl, html);
 }
 
 function renderField() {
@@ -744,36 +786,46 @@ function renderCombat() {
   const ui = s.combatUI;
   let html = '';
   if (ui.phase === 'ACTION') {
-    html = `<b>${s.party.members[ui.actorIdx].name}'s turn</b> — [1] Attack [2] Cast [3] Block [4] Run`;
+    html = `<b>${s.party.members[ui.actorIdx].name}'s turn</b><br/>` +
+      choiceButtons([['1', 'Attack'], ['2', 'Cast'], ['3', 'Block'], ['4', 'Run']]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
-    html = 'Target group: ' + combat.groups.map((g, i) => `[${i + 1}] ${g.name}`).join(' ');
+    html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name]));
   } else if (ui.phase === 'SPELL_SELECT') {
-    html = 'Cast: ' + ui.spellChoices.map((sp, i) => `[${i + 1}] ${sp.name} (${sp.spCost}sp)`).join(' ');
+    html = 'Cast:<br/>' + choiceButtons(ui.spellChoices.map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost}sp)`]));
   } else if (ui.phase === 'SPELL_TARGET_ALLY') {
-    html = 'Target ally: ' + s.party.members.map((m, i) => `[${i + 1}] ${m.name}`).join(' ');
+    html = 'Target ally:<br/>' + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
   }
-  combatPanel.innerHTML = html;
+  setHtmlIfChanged(combatPanel, html);
 }
 
 function renderShop() {
   const s = Game.state;
   const c = shopCharacter();
-  let html = `<b>${s.shop.type.replace('_', ' ')}</b> — selected: ${c.name} (, / . to change)<br/>`;
+  let html = `<b>${s.shop.type.replace('_', ' ')}</b> — selected: ${c.name} ` +
+    choiceButtons([[',', '‹'], ['.', '›']]) + '<br/>';
   if (s.shop.type === 'TEMPLE') {
-    html += `[1] Heal & cure ${c.name} (${templeHealCost(c) + templeRestoreSpCost(c)}g)  [2] Resurrect if dead  [3] Full party heal/cure  [Esc] Leave`;
+    html += choiceButtons([
+      ['1', `Heal & cure ${c.name} (${templeHealCost(c) + templeRestoreSpCost(c)}g)`],
+      ['2', 'Resurrect if dead'],
+      ['3', 'Full party heal/cure'],
+    ]);
   } else if (s.shop.type === 'BLACKSMITH') {
-    html += WEAPONS.map((w, i) => `[${i + 1}] ${w.name} ${w.cost}g`).join(' ') + '<br/>' +
-      ARMORS.map((a, i) => `[${i + 1 + WEAPONS.length}] ${a.name} ${a.cost}g`).join(' ') + '  [Esc] Leave';
+    html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
+      choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
   } else if (s.shop.type === 'MAGIC_SHOP') {
     const school = c.cls === 'Sorcerer' ? 'sorcerer' : (c.cls === 'Cleric' || c.cls === 'Paladin') ? 'cleric' : null;
-    html += school ? spellsForSchool(school).map((sp, i) => `[${i + 1}] ${sp.name} (${sp.spCost * 25}g)`).join(' ') : `${c.name} cannot learn spells.`;
-    html += '  [Esc] Leave';
+    html += school ? choiceButtons(spellsForSchool(school).map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost * 25}g)`])) : `${c.name} cannot learn spells.`;
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
-    html += `[1] Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)  [Esc] Leave`;
+    html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {
-    html += `[1] Buy 5 food (${5 * TAVERN_COSTS.foodCost}g)  [2] Rest (uses 1 food)  [3] Hear a rumor  [Esc] Leave`;
+    html += choiceButtons([
+      ['1', `Buy 5 food (${5 * TAVERN_COSTS.foodCost}g)`],
+      ['2', 'Rest (uses 1 food)'],
+      ['3', 'Hear a rumor'],
+    ]);
   }
-  shopPanel.innerHTML = html;
+  html += '<br/>' + choiceButtons([['Escape', 'Leave']]);
+  setHtmlIfChanged(shopPanel, html);
   shopPanel.classList.remove('hidden');
   combatPanel.classList.add('hidden');
   castPanel.classList.add('hidden');
@@ -786,14 +838,15 @@ function renderFieldCast() {
   const s = Game.state;
   const fc = s.fieldCast;
   const caster = fieldCastCaster();
-  let html = `<b>Cast</b> — caster: ${caster.name} (, / . to change)<br/>`;
+  let html = `<b>Cast</b> — caster: ${caster.name} ` + choiceButtons([[',', '‹'], ['.', '›']]) + '<br/>';
   if (fc.phase === 'SPELL') {
     const list = fieldEligibleSpells(caster);
-    html += list.map((sp, i) => `[${i + 1}] ${sp.name} (${sp.spCost}sp)`).join(' ') + '  [Esc] Cancel';
+    html += choiceButtons(list.map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost}sp)`]));
   } else if (fc.phase === 'TARGET') {
-    html += `Casting ${fc.spell.name} on: ` + s.party.members.map((m, i) => `[${i + 1}] ${m.name}`).join(' ') + '  [Esc] Cancel';
+    html += `Casting ${fc.spell.name} on:<br/>` + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
   }
-  castPanel.innerHTML = html;
+  html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
+  setHtmlIfChanged(castPanel, html);
   castPanel.classList.remove('hidden');
   combatPanel.classList.add('hidden');
   shopPanel.classList.add('hidden');
@@ -803,7 +856,7 @@ function renderFieldCast() {
 }
 
 function renderOverlay(text) {
-  overlayEl.textContent = text;
+  setHtmlIfChanged(overlayEl, `${text}<br/><br/>` + choiceButtons([['Enter', 'Continue']]));
   overlayEl.classList.remove('hidden');
   combatPanel.classList.add('hidden');
   shopPanel.classList.add('hidden');
@@ -819,6 +872,7 @@ function render() {
   else if (s.mode === 'CAST') renderFieldCast();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
+  touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
   renderRoster();
   logEl.textContent = s.log.recent(8).join('\n');
   logEl.scrollTop = logEl.scrollHeight;
