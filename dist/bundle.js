@@ -280,15 +280,28 @@ const BIOME_MONSTER_TAGS = {
   PLAINS: 'plains', FOREST: 'forest', HILLS: 'hills', SWAMP: 'swamp', DESERT: 'desert', MOUNTAIN: 'mountain',
 };
 
+// WHAT: per-tileset wall-detail knobs consumed by fpview.js's per-cell wall
+// identity pass. WHY: "density and motif come from the map's tileset" per
+// spec — this is what makes overworld/town/dungeon walls read differently
+// without fpview.js ever branching on map.kind; it just reads these numbers.
+//   crackChance/mossChance/accentChance: per-face probability of that detail.
+//   mossColor: stain/patch fill color (with alpha) for this tileset.
+//   jitter: max per-cell base-color brightness variance (fraction, e.g. 0.08 = +/-8%).
+const detail = (crackChance, mossChance, accentChance, mossColor, jitter) =>
+  ({ crackChance, mossChance, accentChance, mossColor, jitter });
+
 const BIOME_TILESET = {
-  PLAINS: { sky: '#bfe3ff', floor: '#7fae4a', wall: '#5c7a36', tint: '#e8ffd0' },
-  FOREST: { sky: '#8fbf9a', floor: '#2f5a2f', wall: '#1e3d1e', tint: '#123312' },
-  HILLS: { sky: '#cfe0ea', floor: '#8a8256', wall: '#5f5a3a', tint: '#d8cfa0' },
-  SWAMP: { sky: '#7c8f7a', floor: '#3c4a30', wall: '#26301c', tint: '#39422a' },
-  DESERT: { sky: '#ffe3a3', floor: '#d9b465', wall: '#a97f3d', tint: '#fff3cf' },
-  MOUNTAIN: { sky: '#c9d3dc', floor: '#7d7d82', wall: '#4c4c52', tint: '#e4e7ec' },
-  WATER: { sky: '#bfe3ff', floor: '#3a6fa8', wall: '#1f3f61', tint: '#bfe3ff' },
+  PLAINS: { sky: '#bfe3ff', floor: '#7fae4a', wall: '#5c7a36', tint: '#e8ffd0', detail: detail(0.15, 0.2, 0.05, 'rgba(80,120,40,0.25)', 0.06) },
+  FOREST: { sky: '#8fbf9a', floor: '#2f5a2f', wall: '#1e3d1e', tint: '#123312', detail: detail(0.2, 0.4, 0.05, 'rgba(20,60,20,0.35)', 0.08) },
+  HILLS: { sky: '#cfe0ea', floor: '#8a8256', wall: '#5f5a3a', tint: '#d8cfa0', detail: detail(0.25, 0.2, 0.04, 'rgba(90,80,50,0.25)', 0.07) },
+  SWAMP: { sky: '#7c8f7a', floor: '#3c4a30', wall: '#26301c', tint: '#39422a', detail: detail(0.2, 0.5, 0.03, 'rgba(30,50,20,0.4)', 0.09) },
+  DESERT: { sky: '#ffe3a3', floor: '#d9b465', wall: '#a97f3d', tint: '#fff3cf', detail: detail(0.3, 0.05, 0.04, 'rgba(120,90,40,0.2)', 0.08) },
+  MOUNTAIN: { sky: '#c9d3dc', floor: '#7d7d82', wall: '#4c4c52', tint: '#e4e7ec', detail: detail(0.4, 0.15, 0.03, 'rgba(60,60,65,0.3)', 0.07) },
+  WATER: { sky: '#bfe3ff', floor: '#3a6fa8', wall: '#1f3f61', tint: '#bfe3ff', detail: detail(0.05, 0.1, 0.02, 'rgba(20,40,60,0.3)', 0.05) },
 };
+
+const DUNGEON_TILESET = { sky: '#1a1a22', floor: '#2a2418', wall: '#4a4238', door: '#7a5230', detail: detail(0.35, 0.3, 0.15, 'rgba(40,55,25,0.3)', 0.1) };
+const TOWN_TILESET = { sky: '#7fb2e0', floor: '#8a7a5a', wall: '#5a4a30', door: '#8a5a2e', detail: detail(0.1, 0.08, 0.08, 'rgba(60,70,40,0.15)', 0.05) };
 
 const OVERWORLD_SIGNPOST_MESSAGES = [
   'A weathered sign: "Frosthold lies to the north."',
@@ -314,13 +327,24 @@ const TOWN_SIZE = 20;
 const FPVIEW_MAX_DEPTH = 4;
 const FPVIEW_DEPTH_SHADE = 0.16; // darken factor per depth unit
 
+const FPVIEW_TORCH_WARMTH = 0.32; // max warm-color blend at depth 0
+const FPVIEW_TORCH_FALLOFF = 1.1; // higher = warmth fades out sooner with depth
+const FPVIEW_TORCH_COLOR = [255, 176, 96]; // [r,g,b] torch-glow tint
+
+const FPVIEW_GRID_COLOR = 'rgba(0,0,0,0.35)'; // floor/ceiling seam-line color
+const FPVIEW_GRID_WIDTH = 1.5; // seam line stroke width, px
+
+const FPVIEW_STEP_DOLLY_MS = 120; // cosmetic forward/back push duration
+const FPVIEW_BUMP_SHAKE_MS = 150; // wall-bump screen-shake duration
+const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
+
 // ---------------------------------------------------------------------------
 // RNG
 // ---------------------------------------------------------------------------
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -372,7 +396,36 @@ class RNG {
   }
 }
 
-    return { mulberry32, RNG };
+// WHAT: deterministic FNV-1a style hash of any number of integers into one
+// 32-bit unsigned value. WHY: per-cell wall detailing (fpview.js) needs a
+// value that is always identical for the same (mapSeed, cellX, cellY, edge)
+// tuple and never needs to persist as stream state between frames.
+function hashInts(...ints) {
+  let h = 0x811c9dc5;
+  for (const n of ints) {
+    h ^= (n | 0);
+    h = Math.imul(h, 0x01000193);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
+
+// WHAT: hash a string (e.g. a map name) down to a 32-bit unsigned value.
+function hashString(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = hashInts(h, str.charCodeAt(i));
+  return h >>> 0;
+}
+
+// WHAT: a fresh, fully deterministic RNG stream seeded from arbitrary
+// integers. WHY: lets any renderer pull several ordered deterministic draws
+// (jitter, band count, crack chance, accent choice...) for one cell/edge
+// without maintaining per-cell state anywhere.
+function hashRng(...ints) {
+  return new RNG(hashInts(...ints));
+}
+
+    return { mulberry32, RNG, hashInts, hashString, hashRng };
   })();
 
   // ---- src/log.js ----
@@ -524,52 +577,205 @@ function floodFillReachable(map, sx, sy) {
 // fpview.js
 // WHAT: the ONE first-person renderer for overworld, town, and dungeon.
 // WHY: spec requires zero per-map-kind branching in projection geometry —
-// the only kind-specific inputs are the tileset (colors) and which edge
-// states are legal on that map. Everything else (nested-quad math, depth
-// shading, door/secret rendering) is identical for all three map kinds.
+// the only kind-specific inputs are the tileset (colors + wall-detail knobs)
+// and which edge states are legal on that map. Everything else (nested-quad
+// math, depth shading, door/secret rendering, per-cell wall texture) is
+// identical for all three map kinds; motif/density differences come only
+// from the numbers the active tileset supplies.
 
 const { DELTA, LEFT_OF, RIGHT_OF, EDGE } = __mod['data'];
-const { FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE } = __mod['data'];
+const { FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH } = __mod['data'];
+const { hashRng } = __mod['rng'];
 
-// WHAT: darken a "#rrggbb" color by a depth-based factor.
-// WHY: receding corridor cells must read as farther away.
-function shade(hex, depth) {
-  const factor = Math.max(0.22, 1 - depth * FPVIEW_DEPTH_SHADE);
-  const r = parseInt(hex.slice(1, 3), 16) * factor;
-  const g = parseInt(hex.slice(3, 5), 16) * factor;
-  const b = parseInt(hex.slice(5, 7), 16) * factor;
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+
+// WHAT: darken an [r,g,b] triple by a depth-based factor, then blend in a
+// torch-glow warmth that falls off with distance. WHY: this is the "torch
+// falloff" cue — near faces brighten warm, far faces fade dark and neutral —
+// layered on top of the existing linear depth darkening.
+function shadeAndGlow(rgb, depth) {
+  const darkFactor = Math.max(0.22, 1 - depth * FPVIEW_DEPTH_SHADE);
+  const warmth = FPVIEW_TORCH_WARMTH * Math.exp(-depth * FPVIEW_TORCH_FALLOFF);
+  const r = rgb[0] * darkFactor * (1 - warmth) + FPVIEW_TORCH_COLOR[0] * warmth;
+  const g = rgb[1] * darkFactor * (1 - warmth) + FPVIEW_TORCH_COLOR[1] * warmth;
+  const b = rgb[2] * darkFactor * (1 - warmth) + FPVIEW_TORCH_COLOR[2] * warmth;
   return `rgb(${r | 0},${g | 0},${b | 0})`;
 }
 
-function wallColorFor(edgeState, found, tileset) {
-  if (edgeState === EDGE.DOOR) return tileset.door || '#8a5a2e';
-  if (edgeState === EDGE.SECRET && found) return tileset.door || '#8a5a2e';
-  return tileset.wall; // WALL, or undiscovered SECRET — looks identical to a wall
+function wallBaseRgb(edgeState, found, tileset) {
+  if (edgeState === EDGE.DOOR) return hexToRgb(tileset.door || '#8a5a2e');
+  if (edgeState === EDGE.SECRET && found) return hexToRgb(tileset.door || '#8a5a2e');
+  return hexToRgb(tileset.wall); // WALL, or undiscovered SECRET — looks identical to a wall
 }
 
 // WHAT: geometric shrink of the view frustum at depth i (0 = right at the
-// party's feet plane, larger = farther away).
+// party's feet plane, larger = farther away). Accepts a fractional depth so
+// the step-dolly tween can render at any point between two integer cells.
 function planeAt(cx, cy, maxHalfW, maxHalfH, depth) {
   const SHRINK = 0.62;
   const s = Math.pow(SHRINK, depth);
   return { halfW: maxHalfW * s, halfH: maxHalfH * s };
 }
 
-function drawSideTrap(ctx, cx, cy, near, far, side, color) {
+function sideTrapPoints(cx, cy, near, far, side) {
   const sign = side === 'left' ? -1 : 1;
-  ctx.beginPath();
-  ctx.moveTo(cx + sign * near.halfW, cy - near.halfH);
-  ctx.lineTo(cx + sign * far.halfW, cy - far.halfH);
-  ctx.lineTo(cx + sign * far.halfW, cy + far.halfH);
-  ctx.lineTo(cx + sign * near.halfW, cy + near.halfH);
-  ctx.closePath();
-  ctx.fillStyle = color;
-  ctx.fill();
+  return [
+    [cx + sign * near.halfW, cy - near.halfH],
+    [cx + sign * far.halfW, cy - far.halfH],
+    [cx + sign * far.halfW, cy + far.halfH],
+    [cx + sign * near.halfW, cy + near.halfH],
+  ];
 }
 
-function drawFrontRect(ctx, cx, cy, far, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(cx - far.halfW, cy - far.halfH, far.halfW * 2, far.halfH * 2);
+function frontRectPoints(cx, cy, far) {
+  return [
+    [cx - far.halfW, cy - far.halfH],
+    [cx + far.halfW, cy - far.halfH],
+    [cx + far.halfW, cy + far.halfH],
+    [cx - far.halfW, cy + far.halfH],
+  ];
+}
+
+function tracePath(ctx, points) {
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+  ctx.closePath();
+}
+
+function boundsOf(points) {
+  const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+// WHAT: draw deterministic per-cell/per-edge wall texture (masonry banding,
+// a crack, a moss/stain patch, an occasional torch sconce or rune) clipped
+// to the face's own path. WHY: this is what makes a straight corridor read
+// as many distinct cells instead of one repeating frame — the SAME
+// (mapSeed, cellX, cellY, edgeDir) always draws the same detail, and no two
+// different cells/edges draw the same detail. Only ever called for WALL (or
+// undiscovered SECRET) faces — doors stay clean so they read as distinct.
+function drawWallDetail(ctx, points, tileset, rng, depth) {
+  const { x, y, w, h } = boundsOf(points);
+  if (w < 2 || h < 2) return;
+  const d = tileset.detail;
+  ctx.save();
+  tracePath(ctx, points);
+  ctx.clip();
+
+  const darkFactor = Math.max(0.22, 1 - depth * FPVIEW_DEPTH_SHADE);
+  const bandRgb = hexToRgb(tileset.wall).map((c) => c * darkFactor * 0.65);
+  ctx.strokeStyle = `rgb(${bandRgb[0] | 0},${bandRgb[1] | 0},${bandRgb[2] | 0})`;
+  ctx.lineWidth = Math.max(1, h * 0.02);
+  const bands = 2 + Math.floor(rng.next() * 2);
+  for (let i = 1; i <= bands; i++) {
+    const by = y + (h * i) / (bands + 1) + (rng.next() - 0.5) * h * 0.05;
+    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x + w, by); ctx.stroke();
+  }
+
+  if (rng.chance(d.crackChance)) {
+    const crackRgb = hexToRgb(tileset.wall).map((c) => c * darkFactor * 0.4);
+    ctx.strokeStyle = `rgb(${crackRgb[0] | 0},${crackRgb[1] | 0},${crackRgb[2] | 0})`;
+    ctx.lineWidth = Math.max(1, h * 0.012);
+    let px = x + rng.next() * w, py = y + rng.next() * h * 0.3;
+    ctx.beginPath(); ctx.moveTo(px, py);
+    const segs = 3 + Math.floor(rng.next() * 2);
+    for (let i = 0; i < segs; i++) {
+      px += (rng.next() - 0.5) * w * 0.3;
+      py += h * (0.55 / segs);
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  if (rng.chance(d.mossChance)) {
+    ctx.fillStyle = d.mossColor;
+    const patches = 2 + Math.floor(rng.next() * 3);
+    for (let i = 0; i < patches; i++) {
+      const px = x + rng.next() * w, py = y + h * 0.5 + rng.next() * h * 0.45;
+      const r = w * (0.05 + rng.next() * 0.09);
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  if (rng.chance(d.accentChance)) {
+    const ax = x + w * (0.2 + rng.next() * 0.6);
+    const ay = y + h * (0.3 + rng.next() * 0.3);
+    if (rng.chance(0.6)) {
+      const glowR = Math.max(2, w * 0.18);
+      const grad = ctx.createRadialGradient(ax, ay, 0, ax, ay, glowR);
+      grad.addColorStop(0, 'rgba(255,200,120,0.85)');
+      grad.addColorStop(1, 'rgba(255,140,40,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(ax, ay, glowR, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(40,26,16,0.9)';
+      ctx.fillRect(ax - w * 0.02, ay, Math.max(1, w * 0.04), h * 0.12);
+    } else {
+      ctx.strokeStyle = tileset.door || '#8a5a2e';
+      ctx.lineWidth = Math.max(1, h * 0.015);
+      ctx.beginPath();
+      ctx.moveTo(ax - w * 0.06, ay + h * 0.06);
+      ctx.lineTo(ax, ay - h * 0.06);
+      ctx.lineTo(ax + w * 0.06, ay + h * 0.06);
+      ctx.moveTo(ax, ay - h * 0.02);
+      ctx.lineTo(ax, ay + h * 0.08);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawSideTrap(ctx, cx, cy, near, far, side, tileset, edgeState, found, cellX, cellY, mapSeed, depth) {
+  const points = sideTrapPoints(cx, cy, near, far, side);
+  const rgb = wallBaseRgb(edgeState, found, tileset);
+  const jitterRng = hashRng(mapSeed, cellX, cellY, side === 'left' ? 1 : 2);
+  const jitter = 1 + (jitterRng.next() * 2 - 1) * tileset.detail.jitter;
+  ctx.fillStyle = shadeAndGlow(rgb.map((c) => c * jitter), depth);
+  tracePath(ctx, points);
+  ctx.fill();
+  if (edgeState !== EDGE.DOOR) {
+    drawWallDetail(ctx, points, tileset, hashRng(mapSeed, cellX, cellY, side === 'left' ? 11 : 12), depth);
+  }
+}
+
+function drawFrontRect(ctx, cx, cy, far, tileset, edgeState, cellX, cellY, mapSeed, depth) {
+  const points = frontRectPoints(cx, cy, far);
+  const rgb = wallBaseRgb(edgeState, true, tileset);
+  const jitterRng = hashRng(mapSeed, cellX, cellY, 3);
+  const jitter = 1 + (jitterRng.next() * 2 - 1) * tileset.detail.jitter;
+  ctx.fillStyle = shadeAndGlow(rgb.map((c) => c * jitter), depth);
+  tracePath(ctx, points);
+  ctx.fill();
+  if (edgeState !== EDGE.DOOR) {
+    drawWallDetail(ctx, points, tileset, hashRng(mapSeed, cellX, cellY, 13), depth);
+  }
+}
+
+// WHAT: floor/ceiling seam lines at each depth boundary, plus the two side
+// rails already implied by the wall trapezoids. WHY: "seams visibly pass
+// under the party as they step" — since every step recomputes depth 0 from
+// the party's new cell, these lines visibly shift each frame, turning a
+// static corridor into countable, visible progress.
+function drawFloorCeilingGrid(ctx, cx, cy, maxHalfW, maxHalfH, sliceCount, depthOffset) {
+  ctx.strokeStyle = FPVIEW_GRID_COLOR;
+  ctx.lineWidth = FPVIEW_GRID_WIDTH;
+  for (let d = 0; d <= sliceCount; d++) {
+    const p = planeAt(cx, cy, maxHalfW, maxHalfH, d + depthOffset);
+    ctx.beginPath(); ctx.moveTo(cx - p.halfW, cy + p.halfH); ctx.lineTo(cx + p.halfW, cy + p.halfH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - p.halfW, cy - p.halfH); ctx.lineTo(cx + p.halfW, cy - p.halfH); ctx.stroke();
+  }
+  const near = planeAt(cx, cy, maxHalfW, maxHalfH, depthOffset);
+  const far = planeAt(cx, cy, maxHalfW, maxHalfH, sliceCount + depthOffset);
+  for (const sign of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + sign * near.halfW, cy + near.halfH); ctx.lineTo(cx + sign * far.halfW, cy + far.halfH);
+    ctx.moveTo(cx + sign * near.halfW, cy - near.halfH); ctx.lineTo(cx + sign * far.halfW, cy - far.halfH);
+    ctx.stroke();
+  }
 }
 
 // WHAT: walk forward from (x,y) along `facing` collecting one "slice" per
@@ -591,6 +797,7 @@ function collectSlices(map, x, y, facing, viewDepth) {
     const forwardEdge = map.getEdge(cxCell, cyCell, facing);
     slices.push({
       depth: d,
+      cellX: cxCell, cellY: cyCell,
       leftWall, rightWall,
       secretL: cell.secretFound[left],
       secretR: cell.secretFound[right],
@@ -604,9 +811,14 @@ function collectSlices(map, x, y, facing, viewDepth) {
 }
 
 // WHAT: render the first-person view of `map` from (x,y,facing) into ctx.
-// tileset = { sky, floor, wall, door? } colors supplied by the active map.
-// viewDepth optionally shortened (e.g. DARKNESS special squares).
-function renderFPView(ctx, W, H, map, x, y, facing, tileset, viewDepth = FPVIEW_MAX_DEPTH) {
+// tileset = { sky, floor, wall, door?, detail } supplied by the active map.
+// viewDepth optionally shortened (e.g. DARKNESS special squares). mapSeed is
+// an opaque per-map identity number (main.js derives it once from the
+// world seed + map name) used only to key deterministic wall-detail hashes.
+// depthOffset (default 0) is the cosmetic step-dolly's fractional camera
+// push — see main.js's dolly queue; it never changes turn timing or state,
+// only where planeAt() renders each existing slice.
+function renderFPView(ctx, W, H, map, x, y, facing, tileset, viewDepth = FPVIEW_MAX_DEPTH, mapSeed = 0, depthOffset = 0) {
   ctx.fillStyle = tileset.sky;
   ctx.fillRect(0, 0, W, H / 2);
   ctx.fillStyle = tileset.floor;
@@ -617,20 +829,22 @@ function renderFPView(ctx, W, H, map, x, y, facing, tileset, viewDepth = FPVIEW_
 
   const slices = collectSlices(map, x, y, facing, viewDepth);
 
+  drawFloorCeilingGrid(ctx, cx, cy, maxHalfW, maxHalfH, slices.length, depthOffset);
+
   for (let i = slices.length - 1; i >= 0; i--) {
     const s = slices[i];
-    const near = planeAt(cx, cy, maxHalfW, maxHalfH, s.depth);
-    const far = planeAt(cx, cy, maxHalfW, maxHalfH, s.depth + 1);
+    const near = planeAt(cx, cy, maxHalfW, maxHalfH, s.depth + depthOffset);
+    const far = planeAt(cx, cy, maxHalfW, maxHalfH, s.depth + 1 + depthOffset);
 
     if (s.leftWall !== EDGE.OPEN) {
-      drawSideTrap(ctx, cx, cy, near, far, 'left', shade(wallColorFor(s.leftWall, s.secretL, tileset), s.depth));
+      drawSideTrap(ctx, cx, cy, near, far, 'left', tileset, s.leftWall, s.secretL, s.cellX, s.cellY, mapSeed, s.depth + depthOffset);
     }
     if (s.rightWall !== EDGE.OPEN) {
-      drawSideTrap(ctx, cx, cy, near, far, 'right', shade(wallColorFor(s.rightWall, s.secretR, tileset), s.depth));
+      drawSideTrap(ctx, cx, cy, near, far, 'right', tileset, s.rightWall, s.secretR, s.cellX, s.cellY, mapSeed, s.depth + depthOffset);
     }
     if (s.blocked) {
       const frontEdgeState = s.doorForward ? EDGE.DOOR : EDGE.WALL;
-      drawFrontRect(ctx, cx, cy, far, shade(wallColorFor(frontEdgeState, true, tileset), s.depth + 1));
+      drawFrontRect(ctx, cx, cy, far, tileset, frontEdgeState, s.cellX, s.cellY, mapSeed, s.depth + 1 + depthOffset);
     }
   }
 }
@@ -1886,8 +2100,8 @@ function encounterChanceForCell(map, x, y) {
 // no module here re-implements movement or rendering — it only calls the
 // one shared gridmap/fpview primitives.
 
-const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS } = __mod['data'];
-const { RNG } = __mod['rng'];
+const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE } = __mod['data'];
+const { RNG, hashString } = __mod['rng'];
 const { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } = __mod['gridmap'];
 const { renderFPView } = __mod['fpview'];
 const { renderAutoMap, markExplored } = __mod['automap'];
@@ -1901,8 +2115,6 @@ const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } =
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
 
-const DUNGEON_TILESET = { sky: '#1a1a22', floor: '#2a2418', wall: '#4a4238', door: '#7a5230' };
-const TOWN_TILESET = { sky: '#7fb2e0', floor: '#8a7a5a', wall: '#5a4a30', door: '#8a5a2e' };
 const TOWN_NAMES = ['Frosthold', 'Ashvale', 'Millbrook', 'Cairnwatch'];
 
 const canvas = document.getElementById('view');
@@ -1978,6 +2190,10 @@ function boot() {
     lightTurns: 0,
     lastTown: null,
     lastTownId: null,
+    reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    dollyAnim: null,
+    dollyQueue: [],
+    bumpShake: null,
   };
   Game.state = state;
 
@@ -1993,6 +2209,15 @@ function boot() {
 // ---------------------------------------------------------------------------
 // TILESET / KIND HELPERS
 // ---------------------------------------------------------------------------
+
+// WHAT: an opaque per-map identity number folding the world seed into the
+// map's name. WHY: fpview's per-cell wall detail is keyed by (mapSeed, cellX,
+// cellY, edgeDir) — this keeps two different maps that happen to share a
+// coordinate (e.g. every dungeon level has a cell (3,4)) from ever drawing
+// identical wall texture, and reproduces identically under the same seed.
+function mapSeedFor(map) {
+  return hashString(`${Game.state.seed}:${map.name}`);
+}
 
 function tilesetFor(map, x, y) {
   if (map.kind === MAP_KIND.DUNGEON) return DUNGEON_TILESET;
@@ -2017,6 +2242,27 @@ function rotate(dir) {
   // free turn: NO advanceTurn() call — re-render only.
 }
 
+// WHAT: queue a cosmetic forward/back "dolly" push — never called for
+// strafe, which cuts instantly as before. WHY: this is purely visual; game
+// state and turn timing are already committed by the time this runs. A
+// tween already in progress is never stacked on — the new one queues and
+// plays after, so rapid input never compounds into a runaway offset.
+function queueDolly(sign) {
+  const s = Game.state;
+  if (s.reducedMotion) return;
+  if (s.dollyAnim) s.dollyQueue.push(sign);
+  else s.dollyAnim = { sign, startTime: performance.now() };
+}
+
+// WHAT: trigger the short screen-shake + already-existing log line for a
+// bump. WHY: "no silent no-op" — a blocked step must always be visibly and
+// audibly (via the log) obvious, never just... nothing happening.
+function triggerBumpShake() {
+  const s = Game.state;
+  if (s.reducedMotion) return;
+  s.bumpShake = { startTime: performance.now() };
+}
+
 function step(kind) {
   const s = Game.state;
   if (s.mode !== 'FIELD') return;
@@ -2025,9 +2271,10 @@ function step(kind) {
   else if (kind === 'B') result = tryStepBackward(s.map, s.x, s.y, s.facing);
   else result = tryMove(s.map, s.x, s.y, kind); // strafe: absolute dir L/R of facing
 
-  if (!result.moved) { s.log.push('A wall blocks your way.'); return; }
+  if (!result.moved) { s.log.push('A wall blocks your way.'); triggerBumpShake(); return; }
   s.x = result.x; s.y = result.y;
   markExplored(s.map, s.x, s.y);
+  if (kind === 'F' || kind === 'B') queueDolly(kind === 'F' ? 1 : -1);
   advanceTurn();
 }
 
@@ -2611,13 +2858,45 @@ function renderRoster() {
   setHtmlIfChanged(rosterEl, html);
 }
 
+// WHAT: advance and read the current step-dolly camera offset. WHY: called
+// once per frame from renderField only — it owns the tween/queue-advance
+// side effect, so it must never be called more than once per frame.
+function currentDollyOffset() {
+  const s = Game.state;
+  if (!s.dollyAnim) return 0;
+  const elapsed = performance.now() - s.dollyAnim.startTime;
+  const t = Math.min(1, elapsed / FPVIEW_STEP_DOLLY_MS);
+  const offset = (1 - t) * s.dollyAnim.sign;
+  if (t >= 1) {
+    s.dollyAnim = s.dollyQueue.length ? { sign: s.dollyQueue.shift(), startTime: performance.now() } : null;
+  }
+  return offset;
+}
+
+// WHAT: advance and read the current bump-shake screen offset (decaying
+// jitter, not random per frame — a smooth sine keeps it from looking noisy).
+function currentShakeOffset() {
+  const s = Game.state;
+  if (!s.bumpShake) return { dx: 0, dy: 0 };
+  const elapsed = performance.now() - s.bumpShake.startTime;
+  const t = Math.min(1, elapsed / FPVIEW_BUMP_SHAKE_MS);
+  if (t >= 1) { s.bumpShake = null; return { dx: 0, dy: 0 }; }
+  const mag = FPVIEW_BUMP_SHAKE_MAGNITUDE * (1 - t);
+  return { dx: Math.sin(elapsed * 0.08) * mag, dy: Math.cos(elapsed * 0.11) * mag * 0.6 };
+}
+
 function renderField() {
   const s = Game.state;
   const tileset = tilesetFor(s.map, s.x, s.y);
   const cell = s.map.cellAt(s.x, s.y);
   const dark = cell && cell.dark && s.lightTurns <= 0;
   const depth = dark ? DUNGEON_DARKNESS_VIEW_DEPTH : FPVIEW_MAX_DEPTH;
-  renderFPView(ctx, canvas.width, canvas.height, s.map, s.x, s.y, s.facing, tileset, depth);
+  const dollyOffset = currentDollyOffset();
+  const shake = currentShakeOffset();
+  ctx.save();
+  ctx.translate(shake.dx, shake.dy);
+  renderFPView(ctx, canvas.width, canvas.height, s.map, s.x, s.y, s.facing, tileset, depth, mapSeedFor(s.map), dollyOffset);
+  ctx.restore();
   hudEl.textContent = `${s.map.name}  ${formatCoord(s.map, s.x, s.y)}  facing ${s.facing}${dark ? '  [DARKNESS]' : ''}`;
   if (s.showAutoMap && !dark) {
     mapCanvas.classList.remove('hidden');

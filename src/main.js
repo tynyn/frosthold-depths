@@ -8,10 +8,11 @@ import {
   DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED,
   DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE,
   DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS,
-  BIOME_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
+  BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
   SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
+  FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
 } from './data.js';
-import { RNG } from './rng.js';
+import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
 import { renderFPView } from './fpview.js';
 import { renderAutoMap, markExplored } from './automap.js';
@@ -30,8 +31,6 @@ import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } 
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
 
-const DUNGEON_TILESET = { sky: '#1a1a22', floor: '#2a2418', wall: '#4a4238', door: '#7a5230' };
-const TOWN_TILESET = { sky: '#7fb2e0', floor: '#8a7a5a', wall: '#5a4a30', door: '#8a5a2e' };
 const TOWN_NAMES = ['Frosthold', 'Ashvale', 'Millbrook', 'Cairnwatch'];
 
 const canvas = document.getElementById('view');
@@ -107,6 +106,10 @@ function boot() {
     lightTurns: 0,
     lastTown: null,
     lastTownId: null,
+    reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    dollyAnim: null,
+    dollyQueue: [],
+    bumpShake: null,
   };
   Game.state = state;
 
@@ -122,6 +125,15 @@ function boot() {
 // ---------------------------------------------------------------------------
 // TILESET / KIND HELPERS
 // ---------------------------------------------------------------------------
+
+// WHAT: an opaque per-map identity number folding the world seed into the
+// map's name. WHY: fpview's per-cell wall detail is keyed by (mapSeed, cellX,
+// cellY, edgeDir) — this keeps two different maps that happen to share a
+// coordinate (e.g. every dungeon level has a cell (3,4)) from ever drawing
+// identical wall texture, and reproduces identically under the same seed.
+function mapSeedFor(map) {
+  return hashString(`${Game.state.seed}:${map.name}`);
+}
 
 function tilesetFor(map, x, y) {
   if (map.kind === MAP_KIND.DUNGEON) return DUNGEON_TILESET;
@@ -146,6 +158,27 @@ function rotate(dir) {
   // free turn: NO advanceTurn() call — re-render only.
 }
 
+// WHAT: queue a cosmetic forward/back "dolly" push — never called for
+// strafe, which cuts instantly as before. WHY: this is purely visual; game
+// state and turn timing are already committed by the time this runs. A
+// tween already in progress is never stacked on — the new one queues and
+// plays after, so rapid input never compounds into a runaway offset.
+function queueDolly(sign) {
+  const s = Game.state;
+  if (s.reducedMotion) return;
+  if (s.dollyAnim) s.dollyQueue.push(sign);
+  else s.dollyAnim = { sign, startTime: performance.now() };
+}
+
+// WHAT: trigger the short screen-shake + already-existing log line for a
+// bump. WHY: "no silent no-op" — a blocked step must always be visibly and
+// audibly (via the log) obvious, never just... nothing happening.
+function triggerBumpShake() {
+  const s = Game.state;
+  if (s.reducedMotion) return;
+  s.bumpShake = { startTime: performance.now() };
+}
+
 function step(kind) {
   const s = Game.state;
   if (s.mode !== 'FIELD') return;
@@ -154,9 +187,10 @@ function step(kind) {
   else if (kind === 'B') result = tryStepBackward(s.map, s.x, s.y, s.facing);
   else result = tryMove(s.map, s.x, s.y, kind); // strafe: absolute dir L/R of facing
 
-  if (!result.moved) { s.log.push('A wall blocks your way.'); return; }
+  if (!result.moved) { s.log.push('A wall blocks your way.'); triggerBumpShake(); return; }
   s.x = result.x; s.y = result.y;
   markExplored(s.map, s.x, s.y);
+  if (kind === 'F' || kind === 'B') queueDolly(kind === 'F' ? 1 : -1);
   advanceTurn();
 }
 
@@ -740,13 +774,45 @@ function renderRoster() {
   setHtmlIfChanged(rosterEl, html);
 }
 
+// WHAT: advance and read the current step-dolly camera offset. WHY: called
+// once per frame from renderField only — it owns the tween/queue-advance
+// side effect, so it must never be called more than once per frame.
+function currentDollyOffset() {
+  const s = Game.state;
+  if (!s.dollyAnim) return 0;
+  const elapsed = performance.now() - s.dollyAnim.startTime;
+  const t = Math.min(1, elapsed / FPVIEW_STEP_DOLLY_MS);
+  const offset = (1 - t) * s.dollyAnim.sign;
+  if (t >= 1) {
+    s.dollyAnim = s.dollyQueue.length ? { sign: s.dollyQueue.shift(), startTime: performance.now() } : null;
+  }
+  return offset;
+}
+
+// WHAT: advance and read the current bump-shake screen offset (decaying
+// jitter, not random per frame — a smooth sine keeps it from looking noisy).
+function currentShakeOffset() {
+  const s = Game.state;
+  if (!s.bumpShake) return { dx: 0, dy: 0 };
+  const elapsed = performance.now() - s.bumpShake.startTime;
+  const t = Math.min(1, elapsed / FPVIEW_BUMP_SHAKE_MS);
+  if (t >= 1) { s.bumpShake = null; return { dx: 0, dy: 0 }; }
+  const mag = FPVIEW_BUMP_SHAKE_MAGNITUDE * (1 - t);
+  return { dx: Math.sin(elapsed * 0.08) * mag, dy: Math.cos(elapsed * 0.11) * mag * 0.6 };
+}
+
 function renderField() {
   const s = Game.state;
   const tileset = tilesetFor(s.map, s.x, s.y);
   const cell = s.map.cellAt(s.x, s.y);
   const dark = cell && cell.dark && s.lightTurns <= 0;
   const depth = dark ? DUNGEON_DARKNESS_VIEW_DEPTH : FPVIEW_MAX_DEPTH;
-  renderFPView(ctx, canvas.width, canvas.height, s.map, s.x, s.y, s.facing, tileset, depth);
+  const dollyOffset = currentDollyOffset();
+  const shake = currentShakeOffset();
+  ctx.save();
+  ctx.translate(shake.dx, shake.dy);
+  renderFPView(ctx, canvas.width, canvas.height, s.map, s.x, s.y, s.facing, tileset, depth, mapSeedFor(s.map), dollyOffset);
+  ctx.restore();
   hudEl.textContent = `${s.map.name}  ${formatCoord(s.map, s.x, s.y)}  facing ${s.facing}${dark ? '  [DARKNESS]' : ''}`;
   if (s.showAutoMap && !dark) {
     mapCanvas.classList.remove('hidden');

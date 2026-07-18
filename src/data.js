@@ -272,15 +272,28 @@ export const BIOME_MONSTER_TAGS = {
   PLAINS: 'plains', FOREST: 'forest', HILLS: 'hills', SWAMP: 'swamp', DESERT: 'desert', MOUNTAIN: 'mountain',
 };
 
+// WHAT: per-tileset wall-detail knobs consumed by fpview.js's per-cell wall
+// identity pass. WHY: "density and motif come from the map's tileset" per
+// spec — this is what makes overworld/town/dungeon walls read differently
+// without fpview.js ever branching on map.kind; it just reads these numbers.
+//   crackChance/mossChance/accentChance: per-face probability of that detail.
+//   mossColor: stain/patch fill color (with alpha) for this tileset.
+//   jitter: max per-cell base-color brightness variance (fraction, e.g. 0.08 = +/-8%).
+const detail = (crackChance, mossChance, accentChance, mossColor, jitter) =>
+  ({ crackChance, mossChance, accentChance, mossColor, jitter });
+
 export const BIOME_TILESET = {
-  PLAINS: { sky: '#bfe3ff', floor: '#7fae4a', wall: '#5c7a36', tint: '#e8ffd0' },
-  FOREST: { sky: '#8fbf9a', floor: '#2f5a2f', wall: '#1e3d1e', tint: '#123312' },
-  HILLS: { sky: '#cfe0ea', floor: '#8a8256', wall: '#5f5a3a', tint: '#d8cfa0' },
-  SWAMP: { sky: '#7c8f7a', floor: '#3c4a30', wall: '#26301c', tint: '#39422a' },
-  DESERT: { sky: '#ffe3a3', floor: '#d9b465', wall: '#a97f3d', tint: '#fff3cf' },
-  MOUNTAIN: { sky: '#c9d3dc', floor: '#7d7d82', wall: '#4c4c52', tint: '#e4e7ec' },
-  WATER: { sky: '#bfe3ff', floor: '#3a6fa8', wall: '#1f3f61', tint: '#bfe3ff' },
+  PLAINS: { sky: '#bfe3ff', floor: '#7fae4a', wall: '#5c7a36', tint: '#e8ffd0', detail: detail(0.15, 0.2, 0.05, 'rgba(80,120,40,0.25)', 0.06) },
+  FOREST: { sky: '#8fbf9a', floor: '#2f5a2f', wall: '#1e3d1e', tint: '#123312', detail: detail(0.2, 0.4, 0.05, 'rgba(20,60,20,0.35)', 0.08) },
+  HILLS: { sky: '#cfe0ea', floor: '#8a8256', wall: '#5f5a3a', tint: '#d8cfa0', detail: detail(0.25, 0.2, 0.04, 'rgba(90,80,50,0.25)', 0.07) },
+  SWAMP: { sky: '#7c8f7a', floor: '#3c4a30', wall: '#26301c', tint: '#39422a', detail: detail(0.2, 0.5, 0.03, 'rgba(30,50,20,0.4)', 0.09) },
+  DESERT: { sky: '#ffe3a3', floor: '#d9b465', wall: '#a97f3d', tint: '#fff3cf', detail: detail(0.3, 0.05, 0.04, 'rgba(120,90,40,0.2)', 0.08) },
+  MOUNTAIN: { sky: '#c9d3dc', floor: '#7d7d82', wall: '#4c4c52', tint: '#e4e7ec', detail: detail(0.4, 0.15, 0.03, 'rgba(60,60,65,0.3)', 0.07) },
+  WATER: { sky: '#bfe3ff', floor: '#3a6fa8', wall: '#1f3f61', tint: '#bfe3ff', detail: detail(0.05, 0.1, 0.02, 'rgba(20,40,60,0.3)', 0.05) },
 };
+
+export const DUNGEON_TILESET = { sky: '#1a1a22', floor: '#2a2418', wall: '#4a4238', door: '#7a5230', detail: detail(0.35, 0.3, 0.15, 'rgba(40,55,25,0.3)', 0.1) };
+export const TOWN_TILESET = { sky: '#7fb2e0', floor: '#8a7a5a', wall: '#5a4a30', door: '#8a5a2e', detail: detail(0.1, 0.08, 0.08, 'rgba(60,70,40,0.15)', 0.05) };
 
 export const OVERWORLD_SIGNPOST_MESSAGES = [
   'A weathered sign: "Frosthold lies to the north."',
@@ -305,6 +318,17 @@ export const TOWN_SIZE = 20;
 
 export const FPVIEW_MAX_DEPTH = 4;
 export const FPVIEW_DEPTH_SHADE = 0.16; // darken factor per depth unit
+
+export const FPVIEW_TORCH_WARMTH = 0.32; // max warm-color blend at depth 0
+export const FPVIEW_TORCH_FALLOFF = 1.1; // higher = warmth fades out sooner with depth
+export const FPVIEW_TORCH_COLOR = [255, 176, 96]; // [r,g,b] torch-glow tint
+
+export const FPVIEW_GRID_COLOR = 'rgba(0,0,0,0.35)'; // floor/ceiling seam-line color
+export const FPVIEW_GRID_WIDTH = 1.5; // seam line stroke width, px
+
+export const FPVIEW_STEP_DOLLY_MS = 120; // cosmetic forward/back push duration
+export const FPVIEW_BUMP_SHAKE_MS = 150; // wall-bump screen-shake duration
+export const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 // ---------------------------------------------------------------------------
 // RNG

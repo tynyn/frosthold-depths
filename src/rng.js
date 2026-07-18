@@ -44,3 +44,32 @@ export class RNG {
     return new RNG(mixed);
   }
 }
+
+// WHAT: deterministic FNV-1a style hash of any number of integers into one
+// 32-bit unsigned value. WHY: per-cell wall detailing (fpview.js) needs a
+// value that is always identical for the same (mapSeed, cellX, cellY, edge)
+// tuple and never needs to persist as stream state between frames.
+export function hashInts(...ints) {
+  let h = 0x811c9dc5;
+  for (const n of ints) {
+    h ^= (n | 0);
+    h = Math.imul(h, 0x01000193);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
+
+// WHAT: hash a string (e.g. a map name) down to a 32-bit unsigned value.
+export function hashString(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = hashInts(h, str.charCodeAt(i));
+  return h >>> 0;
+}
+
+// WHAT: a fresh, fully deterministic RNG stream seeded from arbitrary
+// integers. WHY: lets any renderer pull several ordered deterministic draws
+// (jitter, band count, crack chance, accent choice...) for one cell/edge
+// without maintaining per-cell state anywhere.
+export function hashRng(...ints) {
+  return new RNG(hashInts(...ints));
+}
