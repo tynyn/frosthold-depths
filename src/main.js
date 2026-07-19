@@ -138,6 +138,8 @@ function boot() {
     currentMouthId: null,
     dungeonDepth: null,
     dungeonTurnCounter: 0,
+    restSecuredRoomRect: null,
+    oasisGraceSteps: 0,
     showAutoMap: false,
     combat: null,
     combatUI: null,
@@ -262,18 +264,124 @@ function advanceTurn() {
     if (s.mode !== 'FIELD') return; // special changed mode (combat/shop/transition)
   }
   if (s.map.kind === MAP_KIND.DUNGEON) {
-    // Classic wandering-monster check: a flat chance rolled on a fixed turn
-    // cadence, not a continuous per-step probability — depth danger comes
-    // from monster tags/group counts (tagForDepth/numGroupsForDepth) instead.
-    s.dungeonTurnCounter += 1;
-    if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
-      s.dungeonTurnCounter = 0;
-      if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+    if (s.restSecuredRoomRect) {
+      // Secured-room rest suppresses the normal wandering check entirely
+      // while the party is still inside; the moment they step out, exactly
+      // one check fires (not the accrued turn cadence), then the secure
+      // state ends — matching "check for encounter upon leaving room."
+      if (inRoomRect(s.x, s.y, s.restSecuredRoomRect)) {
+        // still inside: no check at all
+      } else {
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+        s.restSecuredRoomRect = null;
+      }
+    } else {
+      // Classic wandering-monster check: a flat chance rolled on a fixed turn
+      // cadence, not a continuous per-step probability — depth danger comes
+      // from monster tags/group counts (tagForDepth/numGroupsForDepth) instead.
+      s.dungeonTurnCounter += 1;
+      if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
+        s.dungeonTurnCounter = 0;
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+      }
     }
   } else if (s.map.kind === MAP_KIND.OVERWORLD) {
-    const rate = encounterChanceForCell(s.map, s.x, s.y);
-    if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
+    if (s.oasisGraceSteps > 0) {
+      // A brief no-roll grace period after resting at an oasis.
+      s.oasisGraceSteps -= 1;
+    } else {
+      const rate = encounterChanceForCell(s.map, s.x, s.y);
+      if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// REST — a field action distinct from Tavern rest, with location-dependent
+// safety: the wilds and a secured dungeon room aren't a paid inn room, so
+// resting there carries risk (or, at a fountain/oasis, doesn't).
+// ---------------------------------------------------------------------------
+
+function inRoomRect(x, y, r) { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; }
+
+function currentDungeonLevel() {
+  const s = Game.state;
+  if (s.map.kind !== MAP_KIND.DUNGEON || s.currentMouthId == null) return null;
+  return s.dungeonMouthsState[s.currentMouthId]?.levels[s.dungeonDepth] || null;
+}
+
+// WHAT: a room can be rested in only if every edge connecting one of its
+// cells to a cell outside the room is NOT a plain open passage — a door
+// (closed by default in this engine — nothing ever props one open),
+// secret door, or wall all count as "sealed" — and no trap inside it is
+// still unsprung. WHY: this is what "the party must secure the room; door
+// closed and no untriggered traps" means in terms of the map's edge data.
+function roomIsSecure(map, room) {
+  for (let y = room.y; y < room.y + room.h; y++) {
+    for (let x = room.x; x < room.x + room.w; x++) {
+      const cell = map.cellAt(x, y);
+      if (cell.special?.type === 'DAMAGE_TRAP' && !cell.special.payload.triggered) return false;
+      for (const dir of DIRS) {
+        const { dx, dy } = DELTA[dir];
+        const nx = x + dx, ny = y + dy;
+        if (inRoomRect(nx, ny, room)) continue; // interior edge, not a boundary
+        if (map.getEdge(x, y, dir) === EDGE.OPEN) return false; // undoored connection to the outside
+      }
+    }
+  }
+  return true;
+}
+
+function restInField() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  const cell = s.map.cellAt(s.x, s.y);
+
+  if (s.map.kind === MAP_KIND.DUNGEON) {
+    if (cell.special?.type === 'FOUNTAIN') {
+      // A fountain is inherently safe — no roll, and resting there costs no
+      // turn at all (a free action, like turning in place).
+      s.log.push(restAtTavern(s.party).message);
+      s.log.push("The fountain's calm wards off danger — resting here is free.");
+      return;
+    }
+    const level = currentDungeonLevel();
+    const room = level?.rooms.find((r) => inRoomRect(s.x, s.y, r));
+    if (!room) { s.log.push('There is no room to secure here — you can only rest behind a sealed door.'); return; }
+    if (!roomIsSecure(s.map, room)) { s.log.push('This room is not secure — an open passage or a live trap remains.'); return; }
+    const result = restAtTavern(s.party);
+    s.log.push(result.message);
+    if (result.success) {
+      s.restSecuredRoomRect = room;
+      s.log.push('The party rests behind the sealed door.');
+    }
+    return;
+  }
+
+  if (s.map.kind === MAP_KIND.OVERWORLD) {
+    if (cell.special?.type === 'OASIS') {
+      s.log.push(restAtTavern(s.party).message);
+      s.oasisGraceSteps = 2;
+      s.log.push('The oasis shelters the party — no danger stirs as they rest.');
+      return;
+    }
+    const chance = encounterChanceForCell(s.map, s.x, s.y);
+    if (chance > 0 && s.rng.chance(chance)) {
+      s.log.push('You are ambushed while trying to rest!');
+      startEncounterFlow();
+      return;
+    }
+    const result = restAtTavern(s.party);
+    s.log.push(result.message);
+    if (!result.success) return;
+    if (chance > 0 && s.rng.chance(chance)) {
+      s.log.push('Something disturbs the party as they wake!');
+      startEncounterFlow();
+    }
+    return;
+  }
+
+  s.log.push('There is nowhere to rest here — try the tavern in town.');
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +511,7 @@ function dispatchSpecial(special) {
       break;
     }
     case 'DAMAGE_TRAP': {
+      special.payload.triggered = true; // rest-security check: a sprung trap is no longer "untriggered"
       const alive = s.party.members.filter(isActive);
       if (alive.length) {
         const target = s.rng.choice(alive);
@@ -811,6 +920,7 @@ function handleKey(key) {
     case ' ': case 'Enter': interact(); break;
     case 'm': case 'M': s.showAutoMap = !s.showAutoMap; break;
     case 'c': case 'C': openFieldCast(); break;
+    case 'r': case 'R': restInField(); break;
     default: break;
   }
 }
