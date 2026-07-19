@@ -33,7 +33,7 @@ import {
   trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS,
 } from './services.js';
 import { findItem, ownedItems, useItem } from './items.js';
-import { identifyLoot, equipLoot, lootName, grantLoot } from './loot.js';
+import { identifyLoot, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } from './loot.js';
 import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } from './dungeon.js';
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
@@ -1042,17 +1042,26 @@ function handleFieldCastKey(key) {
 }
 
 // ---------------------------------------------------------------------------
-// FIELD ITEM USE — General Store consumables, drunk/applied outside combat.
-// Mirrors the field-cast flow: pick an owned item, then (if it targets an
-// ally) pick who; a self-target item (torch oil) applies immediately.
+// FIELD ITEM/SCROLL USE — General Store consumables and looted scrolls,
+// used/read outside combat. Mirrors the field-cast flow: pick an owned
+// entry, then (if it needs one) pick a target ally; a self-target item or
+// a learnable scroll's "who learns it" pick both flow through the same
+// TARGET phase. combatOnly/group-target spells never appear here because
+// no scroll in the catalog is cast-mode against anything but an ally.
 // ---------------------------------------------------------------------------
+
+function ownedUsables(party) {
+  const items = ownedItems(party).map((e) => ({ kind: 'item', item: e.item, count: e.count }));
+  const scrolls = ownedScrolls(party).map((e) => ({ kind: 'scroll', scroll: e.scroll, count: e.count }));
+  return [...items, ...scrolls];
+}
 
 function openFieldItems() {
   const s = Game.state;
   if (s.mode !== 'FIELD') return;
-  if (!ownedItems(s.party).length) { s.log.push('The party carries no usable items.'); return; }
+  if (!ownedUsables(s.party).length) { s.log.push('The party carries no usable items or scrolls.'); return; }
   s.mode = 'ITEM_USE';
-  s.fieldItem = { phase: 'ITEM', item: null };
+  s.fieldItem = { phase: 'ITEM', selection: null };
 }
 
 function handleFieldItemKey(key) {
@@ -1060,21 +1069,34 @@ function handleFieldItemKey(key) {
   const fi = s.fieldItem;
   if (key === 'Escape' || key === 'Backspace') { s.mode = 'FIELD'; s.fieldItem = null; return; }
   if (fi.phase === 'ITEM') {
-    const owned = ownedItems(s.party);
-    const entry = owned[parseInt(key, 10) - 1];
+    const entry = ownedUsables(s.party)[parseInt(key, 10) - 1];
     if (!entry) return;
-    fi.item = entry.item;
-    if (fi.item.target === 'ally') { fi.phase = 'TARGET'; return; }
-    useItem(fi.item.id, { party: s.party, log: s.log, state: s });
+    fi.selection = entry;
+    if (entry.kind === 'item') {
+      if (entry.item.target === 'ally') { fi.phase = 'TARGET'; return; }
+      useItem(entry.item.id, { party: s.party, log: s.log, state: s });
+      s.mode = 'FIELD'; s.fieldItem = null;
+      return;
+    }
+    const spell = findSpell(entry.scroll.spellId);
+    if (entry.scroll.learnable || spell.target === 'ally') { fi.phase = 'TARGET'; return; }
+    const result = useScroll(entry.scroll.id, s.party.members[0], { party: s.party, log: s.log, rng: s.rng, state: s });
+    if (result.message) s.log.push(result.message);
     s.mode = 'FIELD'; s.fieldItem = null;
     return;
   }
   if (fi.phase === 'TARGET') {
     const idx = parseInt(key, 10) - 1;
-    if (idx >= 0 && idx < s.party.members.length) {
-      useItem(fi.item.id, { party: s.party, log: s.log, state: s, targetCharacter: s.party.members[idx] });
-      s.mode = 'FIELD'; s.fieldItem = null;
+    if (idx < 0 || idx >= s.party.members.length) return;
+    const target = s.party.members[idx];
+    const entry = fi.selection;
+    if (entry.kind === 'item') {
+      useItem(entry.item.id, { party: s.party, log: s.log, state: s, targetCharacter: target });
+    } else {
+      const result = useScroll(entry.scroll.id, target, { party: s.party, log: s.log, rng: s.rng, state: s, targetCharacter: target });
+      if (result.message) s.log.push(result.message);
     }
+    s.mode = 'FIELD'; s.fieldItem = null;
   }
 }
 
@@ -1095,15 +1117,18 @@ function renderRoster() {
       <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
-    `<div class="resources">${itemsSummary(s.party.items)}</div>` +
+    `<div class="resources">${itemsSummary(s.party)}</div>` +
     lootSummary(s.party);
   setHtmlIfChanged(rosterEl, html);
 }
 
-function itemsSummary(items) {
-  const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
-  if (!owned.length) return 'Items: none';
-  return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
+function itemsSummary(party) {
+  const items = Object.entries(party.items || {}).filter(([, n]) => n > 0);
+  const scrolls = ownedScrolls(party);
+  if (!items.length && !scrolls.length) return 'Items: none';
+  const parts = items.map(([id, n]) => `${findItem(id)?.name || id} x${n}`)
+    .concat(scrolls.map((e) => `${e.scroll.name} x${e.count}`));
+  return 'Items: ' + parts.join(', ');
 }
 
 function lootSummary(party) {
@@ -1319,12 +1344,20 @@ function renderFieldCast() {
 function renderFieldItems() {
   const s = Game.state;
   const fi = s.fieldItem;
-  let html = '<b>Use Item</b><br/>';
+  let html = '<b>Use Item / Scroll</b><br/>';
   if (fi.phase === 'ITEM') {
-    const owned = ownedItems(s.party);
-    html += choiceButtons(owned.map((entry, i) => [String(i + 1), `${entry.item.name} x${entry.count}`]));
+    const owned = ownedUsables(s.party);
+    html += choiceButtons(owned.map((entry, i) => {
+      if (entry.kind === 'item') return [String(i + 1), `${entry.item.name} x${entry.count}`];
+      const tag = entry.scroll.learnable ? 'learn' : 'cast';
+      return [String(i + 1), `${entry.scroll.name} x${entry.count} (${tag})`];
+    }));
   } else if (fi.phase === 'TARGET') {
-    html += `Using ${fi.item.name} on:<br/>` + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
+    const entry = fi.selection;
+    const name = entry.kind === 'item' ? entry.item.name : entry.scroll.name;
+    const verb = entry.kind === 'scroll' && entry.scroll.learnable ? 'Who learns' : 'Using';
+    html += `${verb} ${name}${verb === 'Using' ? ' on' : ''}:<br/>` +
+      choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
   }
   html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
   setHtmlIfChanged(itemPanel, html);

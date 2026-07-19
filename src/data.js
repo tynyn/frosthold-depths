@@ -313,6 +313,51 @@ export const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
 // picked up instead — no store trip needed.
 export const IDENTIFY_COST = 1;
 
+// WHAT: spell scrolls — each references an existing SPELLS entry by id.
+// `learnable: true` means using it teaches the spell permanently instead of
+// casting it; school-restricted learnable scrolls require the reader to
+// already have that school (schoolFor(character) === scroll.school) unless
+// `universalLearn` is set, which lets ANY class learn it regardless of
+// class/spellSchool — "some simple spells any class might learn." A
+// non-learnable scroll just casts its spell once, for free (no SP cost),
+// and can be read by anyone — the scroll supplies the magic, not the
+// reader's own training. Cost feeds the same gearLootTier() as everything
+// else, and owning more than one of an id is simply more uses.
+// Cast-mode scrolls are only ever usable from the field (no combat scroll
+// action exists), so each one's spellId deliberately targets 'ally' with
+// neither combatOnly nor explorationOnly set — the same field-eligibility
+// a spell needs to appear in the party's own Cast panel. Learnable scrolls
+// have no such constraint: learning just adds the spell to knownSpells, so
+// the character casts it later through their own normal Cast menu
+// (including combat-only spells like Bless/Sleep) exactly as if they'd
+// learned it any other way.
+export const SCROLLS = {
+  scroll_detect_traps: { id: 'scroll_detect_traps', name: 'Scroll of Detect Traps', cost: 20, spellId: 'detect_traps', school: 'sorcerer', learnable: true, universalLearn: true },
+  scroll_light: { id: 'scroll_light', name: 'Scroll of Light', cost: 20, spellId: 'light', school: 'cleric', learnable: true, universalLearn: true },
+  scroll_cure_poison: { id: 'scroll_cure_poison', name: 'Scroll of Cure Poison', cost: 30, spellId: 'cure_poison', school: 'cleric', learnable: false, universalLearn: false },
+  scroll_bless: { id: 'scroll_bless', name: 'Scroll of Bless', cost: 40, spellId: 'bless', school: 'cleric', learnable: true, universalLearn: false },
+  scroll_heal: { id: 'scroll_heal', name: 'Scroll of Heal', cost: 45, spellId: 'heal', school: 'cleric', learnable: false, universalLearn: false },
+  scroll_sleep: { id: 'scroll_sleep', name: 'Scroll of Sleep', cost: 50, spellId: 'sleep', school: 'sorcerer', learnable: true, universalLearn: false },
+};
+
+// WHAT: a loot-drop food packet — always tier 1, so it's possible from any
+// encounter no matter how weak. Resolves straight into party.food, the same
+// counter the Tavern already spends.
+export const FOOD_PACKET_AMOUNT = 3;
+
+// WHAT: sensible starting weapon+armor per class — every character used to
+// begin with equipment: {weapon:null, armor:null}, i.e. genuinely unarmed
+// and unarmored until a Blacksmith visit. That was never a design choice,
+// just a gap; this is what a fresh character is handed at creation.
+export const CLASS_STARTING_GEAR = {
+  Knight: { weapon: 'longsword', armor: 'leather' },
+  Paladin: { weapon: 'longsword', armor: 'leather' },
+  Archer: { weapon: 'shortbow', armor: 'leather' },
+  Cleric: { weapon: 'mace', armor: 'robe' },
+  Sorcerer: { weapon: 'dagger', armor: 'robe' },
+  Robber: { weapon: 'shortsword', armor: 'leather' },
+};
+
 // ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------

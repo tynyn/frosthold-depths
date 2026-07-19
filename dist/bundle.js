@@ -321,6 +321,51 @@ const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
 // picked up instead — no store trip needed.
 const IDENTIFY_COST = 1;
 
+// WHAT: spell scrolls — each references an existing SPELLS entry by id.
+// `learnable: true` means using it teaches the spell permanently instead of
+// casting it; school-restricted learnable scrolls require the reader to
+// already have that school (schoolFor(character) === scroll.school) unless
+// `universalLearn` is set, which lets ANY class learn it regardless of
+// class/spellSchool — "some simple spells any class might learn." A
+// non-learnable scroll just casts its spell once, for free (no SP cost),
+// and can be read by anyone — the scroll supplies the magic, not the
+// reader's own training. Cost feeds the same gearLootTier() as everything
+// else, and owning more than one of an id is simply more uses.
+// Cast-mode scrolls are only ever usable from the field (no combat scroll
+// action exists), so each one's spellId deliberately targets 'ally' with
+// neither combatOnly nor explorationOnly set — the same field-eligibility
+// a spell needs to appear in the party's own Cast panel. Learnable scrolls
+// have no such constraint: learning just adds the spell to knownSpells, so
+// the character casts it later through their own normal Cast menu
+// (including combat-only spells like Bless/Sleep) exactly as if they'd
+// learned it any other way.
+const SCROLLS = {
+  scroll_detect_traps: { id: 'scroll_detect_traps', name: 'Scroll of Detect Traps', cost: 20, spellId: 'detect_traps', school: 'sorcerer', learnable: true, universalLearn: true },
+  scroll_light: { id: 'scroll_light', name: 'Scroll of Light', cost: 20, spellId: 'light', school: 'cleric', learnable: true, universalLearn: true },
+  scroll_cure_poison: { id: 'scroll_cure_poison', name: 'Scroll of Cure Poison', cost: 30, spellId: 'cure_poison', school: 'cleric', learnable: false, universalLearn: false },
+  scroll_bless: { id: 'scroll_bless', name: 'Scroll of Bless', cost: 40, spellId: 'bless', school: 'cleric', learnable: true, universalLearn: false },
+  scroll_heal: { id: 'scroll_heal', name: 'Scroll of Heal', cost: 45, spellId: 'heal', school: 'cleric', learnable: false, universalLearn: false },
+  scroll_sleep: { id: 'scroll_sleep', name: 'Scroll of Sleep', cost: 50, spellId: 'sleep', school: 'sorcerer', learnable: true, universalLearn: false },
+};
+
+// WHAT: a loot-drop food packet — always tier 1, so it's possible from any
+// encounter no matter how weak. Resolves straight into party.food, the same
+// counter the Tavern already spends.
+const FOOD_PACKET_AMOUNT = 3;
+
+// WHAT: sensible starting weapon+armor per class — every character used to
+// begin with equipment: {weapon:null, armor:null}, i.e. genuinely unarmed
+// and unarmored until a Blacksmith visit. That was never a design choice,
+// just a gap; this is what a fresh character is handed at creation.
+const CLASS_STARTING_GEAR = {
+  Knight: { weapon: 'longsword', armor: 'leather' },
+  Paladin: { weapon: 'longsword', armor: 'leather' },
+  Archer: { weapon: 'shortbow', armor: 'leather' },
+  Cleric: { weapon: 'mace', armor: 'robe' },
+  Sorcerer: { weapon: 'dagger', armor: 'robe' },
+  Robber: { weapon: 'shortsword', armor: 'leather' },
+};
+
 // ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------
@@ -477,7 +522,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, SCROLLS, FOOD_PACKET_AMOUNT, CLASS_STARTING_GEAR, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -1074,7 +1119,7 @@ function renderAutoMap(ctx, W, H, map, x, y, facing) {
 // WHY: centralizes HP/SP/AC/XP formulas so combat/services/training all
 // agree on how a character's numbers are computed.
 
-const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS, STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP } = __mod['data'];
+const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS, STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, CLASS_STARTING_GEAR, WEAPONS, ARMORS } = __mod['data'];
 
 // WHAT: max HP for a character at their current level.
 function maxHp(character) {
@@ -1119,12 +1164,18 @@ function armorClass(character) {
 
 function initiative(character) { return character.stats.speed; }
 
-// WHAT: build a fresh character record from a class + stat block.
+// WHAT: build a fresh character record from a class + stat block. Starts
+// equipped with their class's standard kit (CLASS_STARTING_GEAR) rather
+// than genuinely empty-handed.
 function createCharacter({ name, cls, stats }) {
+  const kit = CLASS_STARTING_GEAR[cls];
   const c = {
     name, cls, level: 1, xp: 0,
     stats: { ...stats },
-    equipment: { weapon: null, armor: null },
+    equipment: {
+      weapon: kit ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
+      armor: kit ? ARMORS.find((a) => a.id === kit.armor) || null : null,
+    },
     conditions: [],
     knownSpells: [],
     combatBuff: null,
@@ -1147,6 +1198,7 @@ function createDefaultParty() {
     items: {},
     unidentifiedLoot: [],
     unclaimedGear: [],
+    scrolls: {},
   };
 }
 
@@ -1186,6 +1238,7 @@ function createPartyFromRoster(rosterEntries) {
     items: {},
     unidentifiedLoot: [],
     unclaimedGear: [],
+    scrolls: {},
   };
 }
 
@@ -1311,9 +1364,11 @@ function canCast(character, spell) {
 }
 
 // WHAT: apply a spell's effect. `ctx` = { caster, targetCharacter, targetGroup,
-// party, log } — callers only supply what's relevant to that spell's target type.
+// party, log, free } — callers only supply what's relevant to that spell's
+// target type. `free: true` skips the SP deduction — used when a scroll
+// (not the caster's own training) is supplying the magic.
 function castSpell(spell, ctx) {
-  ctx.caster.sp -= spell.spCost;
+  if (!ctx.free) ctx.caster.sp -= spell.spCost;
   switch (spell.effect) {
     case 'heal': {
       const target = ctx.targetCharacter || ctx.caster;
@@ -1457,29 +1512,33 @@ function useItem(itemId, ctx) {
   // ---- src/loot.js ----
   __mod['loot'] = (function () {
 // loot.js
-// WHAT: bonus item/gear drops beyond gold/gems — tiered so a weak encounter
-// or shallow chest can never hand out top-tier gear, plus the identify
-// pipeline (unidentified -> resolved) that gates whether a drop is usable
-// right away.
+// WHAT: bonus item/gear/scroll/food drops beyond gold/gems — tiered so a
+// weak encounter or shallow chest can never hand out top-tier gear, plus
+// the identify pipeline (unidentified -> resolved) that gates whether a
+// drop is usable right away.
 // WHY: single place that knows the drop pool, the identify cost, and where
-// a resolved drop ends up (party.items for consumables, party.unclaimedGear
-// for weapons/armor pending a free Blacksmith equip) — combat.js and
-// dungeon.js just ask "roll a drop for this tier," main.js just asks
-// "identify index N" / "equip index N onto this character."
+// a resolved drop ends up (party.items/party.scrolls for consumables,
+// party.unclaimedGear for weapons/armor pending a free Blacksmith equip,
+// party.food directly for a food packet) — combat.js and dungeon.js just
+// ask "roll a drop for this tier," main.js just asks "identify index N" /
+// "equip index N onto this character" / "use scroll N on this character."
 
-const { WEAPONS, ARMORS, ITEMS, gearLootTier, IDENTIFY_COST } = __mod['data'];
-const { recomputeDerived } = __mod['party'];
+const { WEAPONS, ARMORS, ITEMS, SCROLLS, gearLootTier, IDENTIFY_COST, FOOD_PACKET_AMOUNT } = __mod['data'];
+const { recomputeDerived, schoolFor } = __mod['party'];
+const { findSpell, castSpell } = __mod['spells'];
 
 function poolForTier(maxTier) {
   const pool = [];
   for (const w of WEAPONS) if (gearLootTier(w.cost) <= maxTier) pool.push({ kind: 'weapon', id: w.id });
   for (const a of ARMORS) if (gearLootTier(a.cost) <= maxTier) pool.push({ kind: 'armor', id: a.id });
   for (const it of Object.values(ITEMS)) if (gearLootTier(it.cost) <= maxTier) pool.push({ kind: 'item', id: it.id });
+  for (const sc of Object.values(SCROLLS)) if (gearLootTier(sc.cost) <= maxTier) pool.push({ kind: 'scroll', id: sc.id });
+  pool.push({ kind: 'food', amount: FOOD_PACKET_AMOUNT }); // always tier 1 — possible from any encounter
   return pool;
 }
 
 // WHAT: pick one random drop of tier <= maxTier, or null if the pool is
-// somehow empty (it never is, since tier-1 gear/items always exist).
+// somehow empty (it never is — a food packet is always in the pool).
 function rollLootDrop(rng, maxTier) {
   const pool = poolForTier(maxTier);
   if (!pool.length) return null;
@@ -1493,23 +1552,28 @@ function catalogFor(kind) {
 }
 
 function lootName(drop) {
+  if (drop.kind === 'food') return 'a food packet';
   const catalog = catalogFor(drop.kind);
   if (catalog) return catalog.find((x) => x.id === drop.id)?.name || drop.id;
+  if (drop.kind === 'scroll') return SCROLLS[drop.id]?.name || drop.id;
   return ITEMS[drop.id]?.name || drop.id;
 }
 
-// WHAT: fold a resolved (known) drop into its final place — a consumable
-// joins the shared item pool, gear waits in unclaimedGear for a free equip.
+// WHAT: fold a resolved (known) drop into its final place. A food packet
+// resolves straight into party.food regardless of identification — you
+// don't need an appraisal to recognize food.
 function resolveLoot(party, drop) {
-  if (drop.kind === 'item') party.items[drop.id] = (party.items[drop.id] || 0) + 1;
+  if (drop.kind === 'food') party.food += drop.amount;
+  else if (drop.kind === 'item') party.items[drop.id] = (party.items[drop.id] || 0) + 1;
+  else if (drop.kind === 'scroll') party.scrolls[drop.id] = (party.scrolls[drop.id] || 0) + 1;
   else party.unclaimedGear.push(drop);
 }
 
 // WHAT: hand a drop to the party. hasAssessor (a living Robber) resolves it
 // immediately, for free; otherwise it waits in unidentifiedLoot until paid
-// identification at the General Store.
+// identification at the General Store. Food never needs identifying.
 function grantLoot(party, drop, hasAssessor) {
-  if (hasAssessor) resolveLoot(party, drop);
+  if (hasAssessor || drop.kind === 'food') resolveLoot(party, drop);
   else party.unidentifiedLoot.push(drop);
 }
 
@@ -1534,7 +1598,37 @@ function equipLoot(party, index, character) {
   return { success: true, message: `${character.name} equips ${item.name}.` };
 }
 
-    return { rollLootDrop, lootName, grantLoot, identifyLoot, equipLoot };
+function ownedScrolls(party) {
+  return Object.entries(party.scrolls || {})
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => ({ scroll: SCROLLS[id], count }))
+    .filter((entry) => entry.scroll);
+}
+
+// WHAT: use one scroll — either it teaches its spell permanently (learnable)
+// or it casts the spell once for free (no SP cost), consuming one copy
+// either way. `ctx` = { party, targetCharacter, log, rng, state } forwarded
+// to castSpell for cast-mode scrolls.
+function useScroll(scrollId, character, ctx) {
+  const scroll = SCROLLS[scrollId];
+  if (!scroll) return { success: false, message: 'No such scroll.' };
+  if (!ctx.party.scrolls[scrollId]) return { success: false, message: 'No such scroll left.' };
+  const spell = findSpell(scroll.spellId);
+  if (scroll.learnable) {
+    if (!scroll.universalLearn && schoolFor(character) !== scroll.school) {
+      return { success: false, message: `${character.name} cannot learn ${spell.name} from this scroll.` };
+    }
+    if (character.knownSpells.includes(spell.id)) return { success: false, message: `${character.name} already knows ${spell.name}.` };
+    character.knownSpells.push(spell.id);
+    ctx.party.scrolls[scrollId] -= 1;
+    return { success: true, message: `${character.name} learns ${spell.name} from the scroll!` };
+  }
+  ctx.party.scrolls[scrollId] -= 1;
+  castSpell(spell, { ...ctx, caster: character, free: true });
+  return { success: true, message: null }; // castSpell already logs its own line
+}
+
+    return { rollLootDrop, lootName, grantLoot, identifyLoot, equipLoot, ownedScrolls, useScroll };
   })();
 
   // ---- src/combat.js ----
@@ -2593,7 +2687,7 @@ const { spellsForSchool, findSpell, castSpell, canCast } = __mod['spells'];
 const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn } = __mod['combat'];
 const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS } = __mod['services'];
 const { findItem, ownedItems, useItem } = __mod['items'];
-const { identifyLoot, equipLoot, lootName, grantLoot } = __mod['loot'];
+const { identifyLoot, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } = __mod['loot'];
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
@@ -3602,17 +3696,26 @@ function handleFieldCastKey(key) {
 }
 
 // ---------------------------------------------------------------------------
-// FIELD ITEM USE — General Store consumables, drunk/applied outside combat.
-// Mirrors the field-cast flow: pick an owned item, then (if it targets an
-// ally) pick who; a self-target item (torch oil) applies immediately.
+// FIELD ITEM/SCROLL USE — General Store consumables and looted scrolls,
+// used/read outside combat. Mirrors the field-cast flow: pick an owned
+// entry, then (if it needs one) pick a target ally; a self-target item or
+// a learnable scroll's "who learns it" pick both flow through the same
+// TARGET phase. combatOnly/group-target spells never appear here because
+// no scroll in the catalog is cast-mode against anything but an ally.
 // ---------------------------------------------------------------------------
+
+function ownedUsables(party) {
+  const items = ownedItems(party).map((e) => ({ kind: 'item', item: e.item, count: e.count }));
+  const scrolls = ownedScrolls(party).map((e) => ({ kind: 'scroll', scroll: e.scroll, count: e.count }));
+  return [...items, ...scrolls];
+}
 
 function openFieldItems() {
   const s = Game.state;
   if (s.mode !== 'FIELD') return;
-  if (!ownedItems(s.party).length) { s.log.push('The party carries no usable items.'); return; }
+  if (!ownedUsables(s.party).length) { s.log.push('The party carries no usable items or scrolls.'); return; }
   s.mode = 'ITEM_USE';
-  s.fieldItem = { phase: 'ITEM', item: null };
+  s.fieldItem = { phase: 'ITEM', selection: null };
 }
 
 function handleFieldItemKey(key) {
@@ -3620,21 +3723,34 @@ function handleFieldItemKey(key) {
   const fi = s.fieldItem;
   if (key === 'Escape' || key === 'Backspace') { s.mode = 'FIELD'; s.fieldItem = null; return; }
   if (fi.phase === 'ITEM') {
-    const owned = ownedItems(s.party);
-    const entry = owned[parseInt(key, 10) - 1];
+    const entry = ownedUsables(s.party)[parseInt(key, 10) - 1];
     if (!entry) return;
-    fi.item = entry.item;
-    if (fi.item.target === 'ally') { fi.phase = 'TARGET'; return; }
-    useItem(fi.item.id, { party: s.party, log: s.log, state: s });
+    fi.selection = entry;
+    if (entry.kind === 'item') {
+      if (entry.item.target === 'ally') { fi.phase = 'TARGET'; return; }
+      useItem(entry.item.id, { party: s.party, log: s.log, state: s });
+      s.mode = 'FIELD'; s.fieldItem = null;
+      return;
+    }
+    const spell = findSpell(entry.scroll.spellId);
+    if (entry.scroll.learnable || spell.target === 'ally') { fi.phase = 'TARGET'; return; }
+    const result = useScroll(entry.scroll.id, s.party.members[0], { party: s.party, log: s.log, rng: s.rng, state: s });
+    if (result.message) s.log.push(result.message);
     s.mode = 'FIELD'; s.fieldItem = null;
     return;
   }
   if (fi.phase === 'TARGET') {
     const idx = parseInt(key, 10) - 1;
-    if (idx >= 0 && idx < s.party.members.length) {
-      useItem(fi.item.id, { party: s.party, log: s.log, state: s, targetCharacter: s.party.members[idx] });
-      s.mode = 'FIELD'; s.fieldItem = null;
+    if (idx < 0 || idx >= s.party.members.length) return;
+    const target = s.party.members[idx];
+    const entry = fi.selection;
+    if (entry.kind === 'item') {
+      useItem(entry.item.id, { party: s.party, log: s.log, state: s, targetCharacter: target });
+    } else {
+      const result = useScroll(entry.scroll.id, target, { party: s.party, log: s.log, rng: s.rng, state: s, targetCharacter: target });
+      if (result.message) s.log.push(result.message);
     }
+    s.mode = 'FIELD'; s.fieldItem = null;
   }
 }
 
@@ -3655,15 +3771,18 @@ function renderRoster() {
       <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
-    `<div class="resources">${itemsSummary(s.party.items)}</div>` +
+    `<div class="resources">${itemsSummary(s.party)}</div>` +
     lootSummary(s.party);
   setHtmlIfChanged(rosterEl, html);
 }
 
-function itemsSummary(items) {
-  const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
-  if (!owned.length) return 'Items: none';
-  return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
+function itemsSummary(party) {
+  const items = Object.entries(party.items || {}).filter(([, n]) => n > 0);
+  const scrolls = ownedScrolls(party);
+  if (!items.length && !scrolls.length) return 'Items: none';
+  const parts = items.map(([id, n]) => `${findItem(id)?.name || id} x${n}`)
+    .concat(scrolls.map((e) => `${e.scroll.name} x${e.count}`));
+  return 'Items: ' + parts.join(', ');
 }
 
 function lootSummary(party) {
@@ -3879,12 +3998,20 @@ function renderFieldCast() {
 function renderFieldItems() {
   const s = Game.state;
   const fi = s.fieldItem;
-  let html = '<b>Use Item</b><br/>';
+  let html = '<b>Use Item / Scroll</b><br/>';
   if (fi.phase === 'ITEM') {
-    const owned = ownedItems(s.party);
-    html += choiceButtons(owned.map((entry, i) => [String(i + 1), `${entry.item.name} x${entry.count}`]));
+    const owned = ownedUsables(s.party);
+    html += choiceButtons(owned.map((entry, i) => {
+      if (entry.kind === 'item') return [String(i + 1), `${entry.item.name} x${entry.count}`];
+      const tag = entry.scroll.learnable ? 'learn' : 'cast';
+      return [String(i + 1), `${entry.scroll.name} x${entry.count} (${tag})`];
+    }));
   } else if (fi.phase === 'TARGET') {
-    html += `Using ${fi.item.name} on:<br/>` + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
+    const entry = fi.selection;
+    const name = entry.kind === 'item' ? entry.item.name : entry.scroll.name;
+    const verb = entry.kind === 'scroll' && entry.scroll.learnable ? 'Who learns' : 'Using';
+    html += `${verb} ${name}${verb === 'Using' ? ' on' : ''}:<br/>` +
+      choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
   }
   html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
   setHtmlIfChanged(itemPanel, html);

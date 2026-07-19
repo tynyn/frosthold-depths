@@ -8,6 +8,7 @@ import {
   SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL,
   STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS,
   STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP,
+  CLASS_STARTING_GEAR, WEAPONS, ARMORS,
 } from './data.js';
 
 // WHAT: max HP for a character at their current level.
@@ -53,12 +54,18 @@ export function armorClass(character) {
 
 export function initiative(character) { return character.stats.speed; }
 
-// WHAT: build a fresh character record from a class + stat block.
+// WHAT: build a fresh character record from a class + stat block. Starts
+// equipped with their class's standard kit (CLASS_STARTING_GEAR) rather
+// than genuinely empty-handed.
 export function createCharacter({ name, cls, stats }) {
+  const kit = CLASS_STARTING_GEAR[cls];
   const c = {
     name, cls, level: 1, xp: 0,
     stats: { ...stats },
-    equipment: { weapon: null, armor: null },
+    equipment: {
+      weapon: kit ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
+      armor: kit ? ARMORS.find((a) => a.id === kit.armor) || null : null,
+    },
     conditions: [],
     knownSpells: [],
     combatBuff: null,
@@ -81,6 +88,7 @@ export function createDefaultParty() {
     items: {},
     unidentifiedLoot: [],
     unclaimedGear: [],
+    scrolls: {},
   };
 }
 
@@ -120,6 +128,7 @@ export function createPartyFromRoster(rosterEntries) {
     items: {},
     unidentifiedLoot: [],
     unclaimedGear: [],
+    scrolls: {},
   };
 }
 

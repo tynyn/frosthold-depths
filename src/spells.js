@@ -25,9 +25,11 @@ export function canCast(character, spell) {
 }
 
 // WHAT: apply a spell's effect. `ctx` = { caster, targetCharacter, targetGroup,
-// party, log } — callers only supply what's relevant to that spell's target type.
+// party, log, free } — callers only supply what's relevant to that spell's
+// target type. `free: true` skips the SP deduction — used when a scroll
+// (not the caster's own training) is supplying the magic.
 export function castSpell(spell, ctx) {
-  ctx.caster.sp -= spell.spCost;
+  if (!ctx.free) ctx.caster.sp -= spell.spCost;
   switch (spell.effect) {
     case 'heal': {
       const target = ctx.targetCharacter || ctx.caster;
