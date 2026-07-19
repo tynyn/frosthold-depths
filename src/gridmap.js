@@ -65,6 +65,15 @@ export class GridMap {
   }
 }
 
+// WHAT: reattach the GridMap prototype to a plain object (e.g. one that
+// just came back from JSON.parse). WHY: GridMap's own data (width, height,
+// kind, name, cells, entry) is already plain and JSON-safe — only the
+// prototype's methods (cellAt/getEdge/setEdge/isPassable) are lost across
+// a stringify/parse round trip, and this is the one place that restores them.
+export function reviveGridMap(plain) {
+  return Object.assign(Object.create(GridMap.prototype), plain);
+}
+
 // ---------------------------------------------------------------------------
 // THE ONE MOVEMENT MODEL — used unchanged by overworld, town, and dungeon.
 // ---------------------------------------------------------------------------

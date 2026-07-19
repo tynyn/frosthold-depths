@@ -38,6 +38,7 @@ import { identifyLoot, identifyCostFor, equipLoot, lootName, grantLoot, ownedScr
 import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } from './dungeon.js';
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
+import { randomSeed, listSaveSlots, saveGameToSlot, loadGameFromSlot } from './save.js';
 
 const TOWN_NAMES = ['Frosthold', 'Ashvale', 'Millbrook', 'Cairnwatch'];
 
@@ -61,6 +62,9 @@ const chargenNameInput = document.getElementById('chargen-name-input');
 const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
 const itemPanel = document.getElementById('item-panel');
+const saveMenuPanel = document.getElementById('save-menu-panel');
+const instructionsPanel = document.getElementById('instructions-panel');
+const instructionsDynamic = document.getElementById('instructions-dynamic');
 
 const CHARGEN_CLASS_ORDER = [
   'Fighter', 'Barbarian', 'Paladin', 'Monk', 'Ranger', 'Rogue',
@@ -70,8 +74,10 @@ const CHARGEN_CLASS_ORDER = [
 // WHAT: hide every screen/panel except `keep`. WHY: MENU/CHARGEN/PARTY_REVIEW
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
 // visible, so each render* function calls this before showing its own.
+// instructionsPanel is deliberately NOT in this list — it's a toggleable
+// overlay independent of mode (see renderInstructions), not a mode screen.
 function hideAllPanelsExcept(keep) {
-  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, saveMenuPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
     if (el !== keep) el.classList.add('hidden');
   }
 }
@@ -121,36 +127,50 @@ function numGroupsForDepth(depth, rng) {
   return rng.int(1, Math.min(4, 1 + Math.floor(depth / 2)));
 }
 
-function boot() {
-  const seed = DEFAULT_SEED;
+// WHAT: (re)build the world (seed/rng/overworld/towns/dungeonMouthsState)
+// and drop the party at the overworld's start tile. WHY: shared by boot()
+// (fixed DEFAULT_SEED) and the main menu's "Randomize Seed" button (a
+// fresh random seed) — one place regenerates a world, so both paths stay
+// in sync with each other and with what a save/load round-trip expects.
+// Only meaningful before an adventure begins (MENU mode, no party yet);
+// loading a save replaces all of this wholesale instead of calling it.
+function regenerateWorld(seed) {
+  const s = Game.state;
   const rng = new RNG(seed);
-  const log = new MessageLog();
-
   const overworldRng = rng.fork(3);
   const overworld = generateOverworld(overworldRng.fork(1), 'Wilderness');
+  s.seed = seed;
+  s.rng = rng;
+  s.overworldRng = overworldRng;
+  s.chargenRng = rng.fork(999); // separate stream: stat rolls/random names never disturb world gen
+  s.overworld = overworld;
+  s.map = overworld.map;
+  s.x = overworld.start.x; s.y = overworld.start.y; s.facing = overworld.map.entry.facing;
+  s.towns = {};
+  s.dungeonMouthsState = {};
+  s.currentTownId = null;
+  s.currentMouthId = null;
+  s.dungeonDepth = null;
+  markExplored(s.map, s.x, s.y);
+}
+
+function boot() {
+  const log = new MessageLog();
 
   const state = {
     mode: 'MENU',
-    seed, rng, overworldRng,
-    chargenRng: rng.fork(999), // separate stream: stat rolls/random names never disturb world gen
     party: null,
     chargen: null,
     log,
-    map: overworld.map,
-    x: overworld.start.x, y: overworld.start.y, facing: overworld.map.entry.facing,
-    overworld,
-    towns: {},
-    dungeonMouthsState: {},
-    currentTownId: null,
-    currentMouthId: null,
-    dungeonDepth: null,
     dungeonTurnCounter: 0,
     restSecuredRoomRect: null,
     oasisGraceSteps: 0,
     showAutoMap: false,
+    showInstructions: false,
     combat: null,
     combatUI: null,
     shop: null,
+    saveMenu: null,
     lightTurns: 0,
     lastTown: null,
     lastTownId: null,
@@ -160,12 +180,39 @@ function boot() {
     bumpShake: null,
   };
   Game.state = state;
-
-  markExplored(state.map, state.x, state.y);
+  regenerateWorld(DEFAULT_SEED);
 
   window.addEventListener('keydown', onKeyDown);
   document.body.addEventListener('click', onTouchButton);
   requestAnimationFrame(loop);
+}
+
+// WHAT: replace the live state with a saved game's snapshot and drop
+// straight into FIELD. WHY: mirrors beginAdventure()'s "one entry point"
+// shape — session-only fields a save never captures (mode, any open
+// menu/combat, the message log, cosmetic animation state) are reset here
+// rather than left dangling from whatever screen the player loaded from.
+function loadGame(slot) {
+  const s = Game.state;
+  const restored = loadGameFromSlot(slot);
+  if (!restored) { s.log.push('That save slot is empty or unreadable.'); return; }
+  Object.assign(s, restored);
+  s.chargen = null;
+  s.combat = null; s.combatUI = null; s.shop = null; s.saveMenu = null;
+  s.fieldCast = null; s.fieldItem = null;
+  s.dollyAnim = null; s.dollyQueue = []; s.bumpShake = null;
+  s.showAutoMap = false;
+  s.log = new MessageLog();
+  s.log.push('You continue your saved adventure.');
+  s.mode = 'FIELD';
+  markExplored(s.map, s.x, s.y);
+}
+
+function saveGame(slot) {
+  const s = Game.state;
+  const result = saveGameToSlot(slot, s);
+  s.log.push(result.message);
+  return result.success;
 }
 
 // WHAT: hand a finished party (premade or player-built) to the game and drop
@@ -884,6 +931,43 @@ function freshDraft() {
 function handleMenuKey(key) {
   if (key === '1' || key === 'quick-start') beginAdventure(createDefaultParty());
   else if (key === '2' || key === 'create-party') startChargen();
+  else if (key === 'randomize-seed') regenerateWorld(randomSeed());
+  else {
+    const m = key.match(/^load-slot-(\d)$/);
+    if (m) loadGame(parseInt(m[1], 10));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SAVE MENU — a field-only action (see openSaveMenu); Continue/load lives
+// on the main menu instead (handleMenuKey), never as an in-field "load"
+// that would silently discard whatever the player is currently doing.
+// ---------------------------------------------------------------------------
+
+function openSaveMenu() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  s.mode = 'SAVE_MENU';
+  s.saveMenu = { phase: 'PICK', pendingSlot: null };
+}
+
+function handleSaveMenuKey(key) {
+  const s = Game.state;
+  const sm = s.saveMenu;
+  if (key === 'Escape' || key === 'Backspace' || key === 'cancel-save') { s.mode = 'FIELD'; s.saveMenu = null; return; }
+  if (sm.phase === 'PICK') {
+    const m = key.match(/^slot-(\d)$/);
+    if (!m) return;
+    const slot = parseInt(m[1], 10);
+    if (listSaveSlots()[slot]) { sm.phase = 'CONFIRM'; sm.pendingSlot = slot; return; }
+    saveGame(slot);
+    s.mode = 'FIELD'; s.saveMenu = null;
+    return;
+  }
+  if (sm.phase === 'CONFIRM') {
+    if (key === 'confirm-overwrite') { saveGame(sm.pendingSlot); s.mode = 'FIELD'; s.saveMenu = null; }
+    else if (key === 'cancel-overwrite') { sm.phase = 'PICK'; sm.pendingSlot = null; }
+  }
 }
 
 function startChargen() {
@@ -952,6 +1036,10 @@ function handlePartyReviewKey(key) {
 // only two callers.
 function handleKey(key) {
   const s = Game.state;
+  // Instructions is a toggle independent of mode — off by default (not
+  // persistent on screen), reachable from anywhere (menu, field, combat,
+  // shop...) by pressing it again, same as automap's M toggle.
+  if (key === 'h' || key === 'H') { s.showInstructions = !s.showInstructions; return; }
   if (s.mode === 'MENU') { handleMenuKey(key); return; }
   if (s.mode === 'CHARGEN') { handleChargenKey(key); return; }
   if (s.mode === 'PARTY_REVIEW') { handlePartyReviewKey(key); return; }
@@ -961,6 +1049,7 @@ function handleKey(key) {
   if (s.mode === 'SHOP') { handleShopKey(key); return; }
   if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
   if (s.mode === 'ITEM_USE') { handleFieldItemKey(key); return; }
+  if (s.mode === 'SAVE_MENU') { handleSaveMenuKey(key); return; }
 
   switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
@@ -974,6 +1063,7 @@ function handleKey(key) {
     case 'c': case 'C': openFieldCast(); break;
     case 'r': case 'R': restInField(); break;
     case 'i': case 'I': openFieldItems(); break;
+    case 'k': case 'K': openSaveMenu(); break;
     default: break;
   }
 }
@@ -1223,6 +1313,7 @@ function renderField() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -1250,6 +1341,7 @@ function renderCombat() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -1349,6 +1441,7 @@ function renderShop() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -1374,6 +1467,7 @@ function renderFieldCast() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
 }
 
@@ -1414,22 +1508,95 @@ function renderOverlay(text) {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------------------
 // MENU / CHARGEN / PARTY_REVIEW RENDER
 // ---------------------------------------------------------------------------
 
+// WHAT: one-line summary for a save slot, shared by the main menu's
+// Continue list and the in-field save-slot picker.
+function slotLabel(entry) {
+  const sum = entry.summary;
+  const when = new Date(entry.savedAt).toLocaleString();
+  return `Lv${sum.avgLevel} party (${sum.alive}/${sum.total} alive), ${sum.where}, ${sum.gold}g — ${when}`;
+}
+
 function renderMenu() {
   clearCanvasForScreen('THE FROSTHOLD DEPTHS');
   hudEl.textContent = 'Choose how to begin';
-  const html = choiceButtons([
-    ['1', 'Quick Start — premade party of six'],
-    ['2', 'Create Party — roll your own heroes'],
-  ]);
+  const slots = listSaveSlots();
+  let html = '';
+  if (slots.some(Boolean)) {
+    html += '<b>Continue</b><br/>' +
+      slots.map((entry, i) => (entry ? choiceButtons([[`load-slot-${i}`, `Slot ${i + 1}: ${slotLabel(entry)}`]]) : '')).join('') +
+      '<br/>';
+  }
+  html += `World seed: <b>${Game.state.seed}</b> ` + choiceButtons([['randomize-seed', 'Randomize Seed']]) + '<br/><br/>' +
+    choiceButtons([
+      ['1', 'Quick Start — premade party of six'],
+      ['2', 'Create Party — roll your own heroes'],
+    ]);
   setHtmlIfChanged(menuDynamic, html);
   hideAllPanelsExcept(menuPanel);
   menuPanel.classList.remove('hidden');
+}
+
+function renderSaveMenu() {
+  const s = Game.state;
+  const sm = s.saveMenu;
+  const slots = listSaveSlots();
+  let html = '<b>Save Game</b><br/>';
+  if (sm.phase === 'PICK') {
+    html += choiceButtons(slots.map((entry, i) =>
+      [`slot-${i}`, entry ? `Slot ${i + 1}: ${slotLabel(entry)} (overwrite)` : `Slot ${i + 1}: empty`]));
+  } else if (sm.phase === 'CONFIRM') {
+    html += `Overwrite Slot ${sm.pendingSlot + 1}?<br/>` + choiceButtons([
+      ['confirm-overwrite', 'Yes, overwrite'],
+      ['cancel-overwrite', 'No, go back'],
+    ]);
+  }
+  html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
+  setHtmlIfChanged(saveMenuPanel, html);
+  hideAllPanelsExcept(saveMenuPanel);
+  saveMenuPanel.classList.remove('hidden');
+  hudEl.textContent = `${s.map.name} — save game`;
+}
+
+// WHAT: a toggleable reference overlay — off by default, reachable from
+// any screen via H, and never forced open by any mode transition. WHY:
+// it must sit on top of whatever else render() just drew, so this runs
+// last and is the only place that touches instructionsPanel's visibility;
+// hideAllPanelsExcept() never manages it (see that function's comment).
+const INSTRUCTIONS_HTML = `
+<b>Controls</b><br/>
+Move: Arrows / WASD &nbsp; Strafe: Q / E &nbsp; Interact / Search for secret doors: Space or Enter<br/>
+Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items / Scrolls / Gear: I &nbsp; Save Game: K &nbsp; This panel: H<br/><br/>
+<b>Combat</b><br/>
+1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run &middot; 5 Steal (Rogue only) — then a number to pick a target.<br/>
+Back-rank melee attacks suffer an accuracy penalty; ranged weapons and spells don't care about rank.<br/><br/>
+<b>Resting</b><br/>
+In town, use the Tavern. In the wilds or a dungeon, press R: a dungeon room needs at least one door shut
+behind you and no unsprung trap; an oasis or fountain is always safe; anywhere else in the wilds risks an ambush.<br/><br/>
+<b>Gear &amp; Loot</b><br/>
+Found weapons/armor start unidentified — a living Rogue assesses loot for free on pickup; otherwise identify
+it at the General Store (cheaper with a living Artificer). Once identified, equip it for free from the Items (I)
+panel in the field, or at the Blacksmith. The offhand slot takes a shield (AC) or a second weapon (dual-wield).<br/><br/>
+<b>Classes</b><br/>
+Fighter/Barbarian/Paladin/Monk/Ranger/Rogue lean martial; Cleric/Druid/Bard support; Sorcerer/Wizard/Warlock
+are pure casters; Paladin/Ranger/Artificer are hybrids who unlock spells at a higher level. Hover a disabled
+button anywhere for the reason it's unavailable.<br/><br/>
+<b>Save / Continue</b><br/>
+Up to 3 save slots (K in the field to save; Continue on the main menu to load). "Randomize Seed" on the
+main menu rerolls the whole world before you start a new adventure — it has no effect on a loaded save.
+`;
+
+function renderInstructions() {
+  const s = Game.state;
+  if (!s.showInstructions) { instructionsPanel.classList.add('hidden'); return; }
+  setHtmlIfChanged(instructionsDynamic, INSTRUCTIONS_HTML + '<br/>' + choiceButtons([['h', 'Close']]));
+  instructionsPanel.classList.remove('hidden');
 }
 
 function renderChargen() {
@@ -1514,6 +1681,7 @@ function render() {
   else if (s.mode === 'ITEM_USE') renderFieldItems();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
+  else if (s.mode === 'SAVE_MENU') renderSaveMenu();
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
   if (s.party) {
     renderRoster();
@@ -1523,6 +1691,7 @@ function render() {
     setHtmlIfChanged(rosterEl, '');
     logEl.textContent = '';
   }
+  renderInstructions();
 }
 
 function loop() {

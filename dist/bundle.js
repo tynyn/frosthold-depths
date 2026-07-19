@@ -596,7 +596,14 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, SHIELDS, OFFHAND_DUAL_WIELD_DAMAGE_BONUS, MONK_UNARMED_DAMAGE_BONUS, MONK_UNARMORED_AC_BONUS, DRUID_NATURAL_AC_BONUS, BARBARIAN_RAGE_HP_THRESHOLD, BARBARIAN_RAGE_DAMAGE_BONUS, ROGUE_BACKSTAB_DAMAGE_BONUS, WARLOCK_LIFESTEAL_FRACTION, ROGUE_STEALTH_ENCOUNTER_MULTIPLIER, ROGUE_PICKPOCKET_CHANCE, ROGUE_PICKPOCKET_GOLD_FRACTION, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, ARTIFICER_IDENTIFY_DISCOUNT, SCROLLS, FOOD_PACKET_AMOUNT, CLASS_STARTING_GEAR, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROGUE_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+// ---------------------------------------------------------------------------
+// SAVE / CONTINUE
+// ---------------------------------------------------------------------------
+
+const SAVE_SLOT_COUNT = 3; // hard cap — no more than 3 save sessions
+const SAVE_STORAGE_PREFIX = 'frosthold-depths-save-';
+
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, SHIELDS, OFFHAND_DUAL_WIELD_DAMAGE_BONUS, MONK_UNARMED_DAMAGE_BONUS, MONK_UNARMORED_AC_BONUS, DRUID_NATURAL_AC_BONUS, BARBARIAN_RAGE_HP_THRESHOLD, BARBARIAN_RAGE_DAMAGE_BONUS, ROGUE_BACKSTAB_DAMAGE_BONUS, WARLOCK_LIFESTEAL_FRACTION, ROGUE_STEALTH_ENCOUNTER_MULTIPLIER, ROGUE_PICKPOCKET_CHANCE, ROGUE_PICKPOCKET_GOLD_FRACTION, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, ARTIFICER_IDENTIFY_DISCOUNT, SCROLLS, FOOD_PACKET_AMOUNT, CLASS_STARTING_GEAR, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROGUE_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED, SAVE_SLOT_COUNT, SAVE_STORAGE_PREFIX };
   })();
 
   // ---- src/rng.js ----
@@ -618,12 +625,23 @@ function mulberry32(seed) {
 }
 
 class RNG {
-  constructor(seed) {
+  // WHAT: `state` is the stream's current internal position (mulberry32's
+  // running accumulator), separate from `seed` (the original starting
+  // value forks are still derived from). WHY: exposing it as a plain
+  // instance field — rather than hiding it in mulberry32's closure — is
+  // what lets save.js snapshot and exactly resume this stream's position;
+  // omit it to start fresh from `seed`, as every existing call site does.
+  constructor(seed, state) {
     this.seed = seed >>> 0;
-    this._next = mulberry32(this.seed);
+    this.a = (state === undefined ? this.seed : state) | 0;
   }
   // WHAT: float in [0,1).
-  next() { return this._next(); }
+  next() {
+    this.a = (this.a + 0x6d2b79f5) | 0;
+    let t = Math.imul(this.a ^ (this.a >>> 15), 1 | this.a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
   // WHAT: integer in [min,max] inclusive.
   int(min, max) { return Math.floor(this.next() * (max - min + 1)) + min; }
   // WHAT: true with probability p.
@@ -773,6 +791,15 @@ class GridMap {
   }
 }
 
+// WHAT: reattach the GridMap prototype to a plain object (e.g. one that
+// just came back from JSON.parse). WHY: GridMap's own data (width, height,
+// kind, name, cells, entry) is already plain and JSON-safe — only the
+// prototype's methods (cellAt/getEdge/setEdge/isPassable) are lost across
+// a stringify/parse round trip, and this is the one place that restores them.
+function reviveGridMap(plain) {
+  return Object.assign(Object.create(GridMap.prototype), plain);
+}
+
 // ---------------------------------------------------------------------------
 // THE ONE MOVEMENT MODEL — used unchanged by overworld, town, and dungeon.
 // ---------------------------------------------------------------------------
@@ -821,7 +848,7 @@ function floodFillReachable(map, sx, sy) {
   return seen;
 }
 
-    return { GridMap, turnLeft, turnRight, tryMove, tryStepForward, tryStepBackward, allDirs, floodFillReachable };
+    return { GridMap, reviveGridMap, turnLeft, turnRight, tryMove, tryStepForward, tryStepBackward, allDirs, floodFillReachable };
   })();
 
   // ---- src/fpview.js ----
@@ -2815,6 +2842,191 @@ function encounterChanceForCell(map, x, y) {
     return { generateOverworld, encounterChanceForCell };
   })();
 
+  // ---- src/save.js ----
+  __mod['save'] = (function () {
+// save.js
+// WHAT: serialize Game.state to/from localStorage save slots (max
+// SAVE_SLOT_COUNT). WHY: GridMap/RNG instances carry prototype methods
+// that don't survive JSON.stringify/parse, and a dungeon level carries two
+// `Set` fields (bossZone, boss.skip) that JSON can't round-trip at all —
+// this is the one place that knows how to flatten and rebuild those
+// shapes; everywhere else in the game keeps using live GridMap/RNG
+// instances and real Sets. Saving is only ever offered from FIELD mode
+// (see main.js's openSaveMenu) — mid-combat/shop/chargen state is never
+// captured, so this module never has to serialize any of that.
+
+const { SAVE_SLOT_COUNT, SAVE_STORAGE_PREFIX, MAP_KIND } = __mod['data'];
+const { reviveGridMap } = __mod['gridmap'];
+const { RNG } = __mod['rng'];
+
+// WHAT: pick an arbitrary new world seed. WHY: Math.random() (not the
+// game's own seeded RNG) is correct here — the whole point is a seed the
+// player couldn't have reproduced on purpose, and nothing downstream of
+// picking it needs to be reproducible itself.
+function randomSeed() {
+  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
+
+function serializeLevel(level) {
+  return {
+    map: level.map,
+    entry: level.entry,
+    stairsDown: level.stairsDown,
+    bossZone: level.bossZone ? [...level.bossZone] : null,
+    boss: level.boss ? { rect: level.boss.rect, skip: [...level.boss.skip], throat: level.boss.throat } : null,
+    depth: level.depth,
+    rooms: level.rooms,
+    bossDefeated: !!level.bossDefeated,
+  };
+}
+
+function deserializeLevel(saved) {
+  return {
+    map: reviveGridMap(saved.map),
+    entry: saved.entry,
+    stairsDown: saved.stairsDown,
+    bossZone: saved.bossZone ? new Set(saved.bossZone) : null,
+    boss: saved.boss ? { rect: saved.boss.rect, skip: new Set(saved.boss.skip), throat: saved.boss.throat } : null,
+    depth: saved.depth,
+    rooms: saved.rooms,
+    bossDefeated: saved.bossDefeated,
+  };
+}
+
+function serializeMouthState(m) {
+  const levels = {};
+  for (const [depth, level] of Object.entries(m.levels)) levels[depth] = serializeLevel(level);
+  return { levels, rngRootSeed: m.rngRoot.seed, maxDepth: m.maxDepth };
+}
+
+function deserializeMouthState(saved) {
+  const levels = {};
+  for (const [depth, level] of Object.entries(saved.levels)) levels[depth] = deserializeLevel(level);
+  return { levels, rngRoot: new RNG(saved.rngRootSeed), maxDepth: saved.maxDepth };
+}
+
+// WHAT: a short human-readable summary of a save — shown in the slot list
+// so picking one to load/overwrite isn't a guess.
+function summarize(state) {
+  const alive = state.party.members.filter((c) => c.hp > 0 && !c.conditions.includes('DEAD'));
+  const avgLevel = Math.round(state.party.members.reduce((sum, c) => sum + c.level, 0) / state.party.members.length);
+  const where = state.map.kind === MAP_KIND.OVERWORLD ? 'the wilderness' : state.map.name;
+  return { avgLevel, alive: alive.length, total: state.party.members.length, where, gold: state.party.gold };
+}
+
+function serializeState(state) {
+  return {
+    version: 1,
+    savedAt: Date.now(),
+    seed: state.seed,
+    rng: { seed: state.rng.seed, a: state.rng.a },
+    mapKind: state.map.kind,
+    x: state.x,
+    y: state.y,
+    facing: state.facing,
+    currentTownId: state.currentTownId,
+    currentMouthId: state.currentMouthId,
+    dungeonDepth: state.dungeonDepth,
+    lastTownId: state.lastTownId,
+    dungeonTurnCounter: state.dungeonTurnCounter,
+    restSecuredRoomRect: state.restSecuredRoomRect,
+    oasisGraceSteps: state.oasisGraceSteps,
+    lightTurns: state.lightTurns,
+    overworld: state.overworld,
+    towns: state.towns,
+    dungeonMouthsState: Object.fromEntries(
+      Object.entries(state.dungeonMouthsState).map(([id, m]) => [id, serializeMouthState(m)]),
+    ),
+    party: state.party,
+    summary: summarize(state),
+  };
+}
+
+// WHAT: rebuild the fields boot()/regenerateWorld() would otherwise set,
+// from a saved snapshot. Returns a plain patch object — main.js's loadGame
+// applies it onto Game.state and resets the handful of session-only fields
+// (mode, combat, open menus, log) that a save never captures.
+function deserializeState(saved) {
+  const overworld = { ...saved.overworld, map: reviveGridMap(saved.overworld.map) };
+  const towns = {};
+  for (const [id, town] of Object.entries(saved.towns)) towns[id] = { ...town, map: reviveGridMap(town.map) };
+  const dungeonMouthsState = {};
+  for (const [id, m] of Object.entries(saved.dungeonMouthsState)) dungeonMouthsState[id] = deserializeMouthState(m);
+
+  let map;
+  if (saved.mapKind === MAP_KIND.DUNGEON) map = dungeonMouthsState[saved.currentMouthId].levels[saved.dungeonDepth].map;
+  else if (saved.mapKind === MAP_KIND.TOWN) map = towns[saved.currentTownId].map;
+  else map = overworld.map;
+
+  return {
+    seed: saved.seed,
+    rng: new RNG(saved.rng.seed, saved.rng.a),
+    map,
+    x: saved.x,
+    y: saved.y,
+    facing: saved.facing,
+    overworld,
+    towns,
+    dungeonMouthsState,
+    currentTownId: saved.currentTownId,
+    currentMouthId: saved.currentMouthId,
+    dungeonDepth: saved.dungeonDepth,
+    lastTownId: saved.lastTownId,
+    lastTown: saved.lastTownId != null && towns[saved.lastTownId] ? towns[saved.lastTownId] : null,
+    dungeonTurnCounter: saved.dungeonTurnCounter,
+    restSecuredRoomRect: saved.restSecuredRoomRect,
+    oasisGraceSteps: saved.oasisGraceSteps,
+    lightTurns: saved.lightTurns,
+    party: saved.party,
+  };
+}
+
+function slotKey(slot) { return `${SAVE_STORAGE_PREFIX}${slot}`; }
+
+// WHAT: read all SAVE_SLOT_COUNT slots. WHY: the main menu's Continue list
+// and the in-field save-slot picker both need "what's already in each
+// slot" up front, before the player picks one.
+function listSaveSlots() {
+  const out = [];
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    let entry = null;
+    try {
+      const raw = localStorage.getItem(slotKey(i));
+      entry = raw ? JSON.parse(raw) : null;
+    } catch {
+      entry = null; // corrupted slot reads as empty rather than crashing the menu
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+function saveGameToSlot(slot, state) {
+  try {
+    localStorage.setItem(slotKey(slot), JSON.stringify(serializeState(state)));
+    return { success: true, message: `Saved to slot ${slot + 1}.` };
+  } catch {
+    return { success: false, message: 'Could not save — storage is full or unavailable.' };
+  }
+}
+
+function loadGameFromSlot(slot) {
+  try {
+    const raw = localStorage.getItem(slotKey(slot));
+    if (!raw) return null;
+    return deserializeState(JSON.parse(raw));
+  } catch {
+    return null; // corrupted/incompatible save — caller treats this like an empty slot
+  }
+}
+
+function deleteSaveSlot(slot) {
+  localStorage.removeItem(slotKey(slot));
+}
+
+    return { randomSeed, serializeState, deserializeState, listSaveSlots, saveGameToSlot, loadGameFromSlot, deleteSaveSlot };
+  })();
+
   // ---- src/main.js ----
   __mod['main'] = (function () {
 // main.js
@@ -2839,6 +3051,7 @@ const { identifyLoot, identifyCostFor, equipLoot, lootName, grantLoot, ownedScro
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
+const { randomSeed, listSaveSlots, saveGameToSlot, loadGameFromSlot } = __mod['save'];
 
 const TOWN_NAMES = ['Frosthold', 'Ashvale', 'Millbrook', 'Cairnwatch'];
 
@@ -2862,6 +3075,9 @@ const chargenNameInput = document.getElementById('chargen-name-input');
 const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
 const itemPanel = document.getElementById('item-panel');
+const saveMenuPanel = document.getElementById('save-menu-panel');
+const instructionsPanel = document.getElementById('instructions-panel');
+const instructionsDynamic = document.getElementById('instructions-dynamic');
 
 const CHARGEN_CLASS_ORDER = [
   'Fighter', 'Barbarian', 'Paladin', 'Monk', 'Ranger', 'Rogue',
@@ -2871,8 +3087,10 @@ const CHARGEN_CLASS_ORDER = [
 // WHAT: hide every screen/panel except `keep`. WHY: MENU/CHARGEN/PARTY_REVIEW
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
 // visible, so each render* function calls this before showing its own.
+// instructionsPanel is deliberately NOT in this list — it's a toggleable
+// overlay independent of mode (see renderInstructions), not a mode screen.
 function hideAllPanelsExcept(keep) {
-  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, saveMenuPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
     if (el !== keep) el.classList.add('hidden');
   }
 }
@@ -2922,36 +3140,50 @@ function numGroupsForDepth(depth, rng) {
   return rng.int(1, Math.min(4, 1 + Math.floor(depth / 2)));
 }
 
-function boot() {
-  const seed = DEFAULT_SEED;
+// WHAT: (re)build the world (seed/rng/overworld/towns/dungeonMouthsState)
+// and drop the party at the overworld's start tile. WHY: shared by boot()
+// (fixed DEFAULT_SEED) and the main menu's "Randomize Seed" button (a
+// fresh random seed) — one place regenerates a world, so both paths stay
+// in sync with each other and with what a save/load round-trip expects.
+// Only meaningful before an adventure begins (MENU mode, no party yet);
+// loading a save replaces all of this wholesale instead of calling it.
+function regenerateWorld(seed) {
+  const s = Game.state;
   const rng = new RNG(seed);
-  const log = new MessageLog();
-
   const overworldRng = rng.fork(3);
   const overworld = generateOverworld(overworldRng.fork(1), 'Wilderness');
+  s.seed = seed;
+  s.rng = rng;
+  s.overworldRng = overworldRng;
+  s.chargenRng = rng.fork(999); // separate stream: stat rolls/random names never disturb world gen
+  s.overworld = overworld;
+  s.map = overworld.map;
+  s.x = overworld.start.x; s.y = overworld.start.y; s.facing = overworld.map.entry.facing;
+  s.towns = {};
+  s.dungeonMouthsState = {};
+  s.currentTownId = null;
+  s.currentMouthId = null;
+  s.dungeonDepth = null;
+  markExplored(s.map, s.x, s.y);
+}
+
+function boot() {
+  const log = new MessageLog();
 
   const state = {
     mode: 'MENU',
-    seed, rng, overworldRng,
-    chargenRng: rng.fork(999), // separate stream: stat rolls/random names never disturb world gen
     party: null,
     chargen: null,
     log,
-    map: overworld.map,
-    x: overworld.start.x, y: overworld.start.y, facing: overworld.map.entry.facing,
-    overworld,
-    towns: {},
-    dungeonMouthsState: {},
-    currentTownId: null,
-    currentMouthId: null,
-    dungeonDepth: null,
     dungeonTurnCounter: 0,
     restSecuredRoomRect: null,
     oasisGraceSteps: 0,
     showAutoMap: false,
+    showInstructions: false,
     combat: null,
     combatUI: null,
     shop: null,
+    saveMenu: null,
     lightTurns: 0,
     lastTown: null,
     lastTownId: null,
@@ -2961,12 +3193,39 @@ function boot() {
     bumpShake: null,
   };
   Game.state = state;
-
-  markExplored(state.map, state.x, state.y);
+  regenerateWorld(DEFAULT_SEED);
 
   window.addEventListener('keydown', onKeyDown);
   document.body.addEventListener('click', onTouchButton);
   requestAnimationFrame(loop);
+}
+
+// WHAT: replace the live state with a saved game's snapshot and drop
+// straight into FIELD. WHY: mirrors beginAdventure()'s "one entry point"
+// shape — session-only fields a save never captures (mode, any open
+// menu/combat, the message log, cosmetic animation state) are reset here
+// rather than left dangling from whatever screen the player loaded from.
+function loadGame(slot) {
+  const s = Game.state;
+  const restored = loadGameFromSlot(slot);
+  if (!restored) { s.log.push('That save slot is empty or unreadable.'); return; }
+  Object.assign(s, restored);
+  s.chargen = null;
+  s.combat = null; s.combatUI = null; s.shop = null; s.saveMenu = null;
+  s.fieldCast = null; s.fieldItem = null;
+  s.dollyAnim = null; s.dollyQueue = []; s.bumpShake = null;
+  s.showAutoMap = false;
+  s.log = new MessageLog();
+  s.log.push('You continue your saved adventure.');
+  s.mode = 'FIELD';
+  markExplored(s.map, s.x, s.y);
+}
+
+function saveGame(slot) {
+  const s = Game.state;
+  const result = saveGameToSlot(slot, s);
+  s.log.push(result.message);
+  return result.success;
 }
 
 // WHAT: hand a finished party (premade or player-built) to the game and drop
@@ -3685,6 +3944,43 @@ function freshDraft() {
 function handleMenuKey(key) {
   if (key === '1' || key === 'quick-start') beginAdventure(createDefaultParty());
   else if (key === '2' || key === 'create-party') startChargen();
+  else if (key === 'randomize-seed') regenerateWorld(randomSeed());
+  else {
+    const m = key.match(/^load-slot-(\d)$/);
+    if (m) loadGame(parseInt(m[1], 10));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SAVE MENU — a field-only action (see openSaveMenu); Continue/load lives
+// on the main menu instead (handleMenuKey), never as an in-field "load"
+// that would silently discard whatever the player is currently doing.
+// ---------------------------------------------------------------------------
+
+function openSaveMenu() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  s.mode = 'SAVE_MENU';
+  s.saveMenu = { phase: 'PICK', pendingSlot: null };
+}
+
+function handleSaveMenuKey(key) {
+  const s = Game.state;
+  const sm = s.saveMenu;
+  if (key === 'Escape' || key === 'Backspace' || key === 'cancel-save') { s.mode = 'FIELD'; s.saveMenu = null; return; }
+  if (sm.phase === 'PICK') {
+    const m = key.match(/^slot-(\d)$/);
+    if (!m) return;
+    const slot = parseInt(m[1], 10);
+    if (listSaveSlots()[slot]) { sm.phase = 'CONFIRM'; sm.pendingSlot = slot; return; }
+    saveGame(slot);
+    s.mode = 'FIELD'; s.saveMenu = null;
+    return;
+  }
+  if (sm.phase === 'CONFIRM') {
+    if (key === 'confirm-overwrite') { saveGame(sm.pendingSlot); s.mode = 'FIELD'; s.saveMenu = null; }
+    else if (key === 'cancel-overwrite') { sm.phase = 'PICK'; sm.pendingSlot = null; }
+  }
 }
 
 function startChargen() {
@@ -3753,6 +4049,10 @@ function handlePartyReviewKey(key) {
 // only two callers.
 function handleKey(key) {
   const s = Game.state;
+  // Instructions is a toggle independent of mode — off by default (not
+  // persistent on screen), reachable from anywhere (menu, field, combat,
+  // shop...) by pressing it again, same as automap's M toggle.
+  if (key === 'h' || key === 'H') { s.showInstructions = !s.showInstructions; return; }
   if (s.mode === 'MENU') { handleMenuKey(key); return; }
   if (s.mode === 'CHARGEN') { handleChargenKey(key); return; }
   if (s.mode === 'PARTY_REVIEW') { handlePartyReviewKey(key); return; }
@@ -3762,6 +4062,7 @@ function handleKey(key) {
   if (s.mode === 'SHOP') { handleShopKey(key); return; }
   if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
   if (s.mode === 'ITEM_USE') { handleFieldItemKey(key); return; }
+  if (s.mode === 'SAVE_MENU') { handleSaveMenuKey(key); return; }
 
   switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
@@ -3775,6 +4076,7 @@ function handleKey(key) {
     case 'c': case 'C': openFieldCast(); break;
     case 'r': case 'R': restInField(); break;
     case 'i': case 'I': openFieldItems(); break;
+    case 'k': case 'K': openSaveMenu(); break;
     default: break;
   }
 }
@@ -4024,6 +4326,7 @@ function renderField() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -4051,6 +4354,7 @@ function renderCombat() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -4150,6 +4454,7 @@ function renderShop() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -4175,6 +4480,7 @@ function renderFieldCast() {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
 }
 
@@ -4215,22 +4521,95 @@ function renderOverlay(text) {
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
+  saveMenuPanel.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------------------
 // MENU / CHARGEN / PARTY_REVIEW RENDER
 // ---------------------------------------------------------------------------
 
+// WHAT: one-line summary for a save slot, shared by the main menu's
+// Continue list and the in-field save-slot picker.
+function slotLabel(entry) {
+  const sum = entry.summary;
+  const when = new Date(entry.savedAt).toLocaleString();
+  return `Lv${sum.avgLevel} party (${sum.alive}/${sum.total} alive), ${sum.where}, ${sum.gold}g — ${when}`;
+}
+
 function renderMenu() {
   clearCanvasForScreen('THE FROSTHOLD DEPTHS');
   hudEl.textContent = 'Choose how to begin';
-  const html = choiceButtons([
-    ['1', 'Quick Start — premade party of six'],
-    ['2', 'Create Party — roll your own heroes'],
-  ]);
+  const slots = listSaveSlots();
+  let html = '';
+  if (slots.some(Boolean)) {
+    html += '<b>Continue</b><br/>' +
+      slots.map((entry, i) => (entry ? choiceButtons([[`load-slot-${i}`, `Slot ${i + 1}: ${slotLabel(entry)}`]]) : '')).join('') +
+      '<br/>';
+  }
+  html += `World seed: <b>${Game.state.seed}</b> ` + choiceButtons([['randomize-seed', 'Randomize Seed']]) + '<br/><br/>' +
+    choiceButtons([
+      ['1', 'Quick Start — premade party of six'],
+      ['2', 'Create Party — roll your own heroes'],
+    ]);
   setHtmlIfChanged(menuDynamic, html);
   hideAllPanelsExcept(menuPanel);
   menuPanel.classList.remove('hidden');
+}
+
+function renderSaveMenu() {
+  const s = Game.state;
+  const sm = s.saveMenu;
+  const slots = listSaveSlots();
+  let html = '<b>Save Game</b><br/>';
+  if (sm.phase === 'PICK') {
+    html += choiceButtons(slots.map((entry, i) =>
+      [`slot-${i}`, entry ? `Slot ${i + 1}: ${slotLabel(entry)} (overwrite)` : `Slot ${i + 1}: empty`]));
+  } else if (sm.phase === 'CONFIRM') {
+    html += `Overwrite Slot ${sm.pendingSlot + 1}?<br/>` + choiceButtons([
+      ['confirm-overwrite', 'Yes, overwrite'],
+      ['cancel-overwrite', 'No, go back'],
+    ]);
+  }
+  html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
+  setHtmlIfChanged(saveMenuPanel, html);
+  hideAllPanelsExcept(saveMenuPanel);
+  saveMenuPanel.classList.remove('hidden');
+  hudEl.textContent = `${s.map.name} — save game`;
+}
+
+// WHAT: a toggleable reference overlay — off by default, reachable from
+// any screen via H, and never forced open by any mode transition. WHY:
+// it must sit on top of whatever else render() just drew, so this runs
+// last and is the only place that touches instructionsPanel's visibility;
+// hideAllPanelsExcept() never manages it (see that function's comment).
+const INSTRUCTIONS_HTML = `
+<b>Controls</b><br/>
+Move: Arrows / WASD &nbsp; Strafe: Q / E &nbsp; Interact / Search for secret doors: Space or Enter<br/>
+Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items / Scrolls / Gear: I &nbsp; Save Game: K &nbsp; This panel: H<br/><br/>
+<b>Combat</b><br/>
+1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run &middot; 5 Steal (Rogue only) — then a number to pick a target.<br/>
+Back-rank melee attacks suffer an accuracy penalty; ranged weapons and spells don't care about rank.<br/><br/>
+<b>Resting</b><br/>
+In town, use the Tavern. In the wilds or a dungeon, press R: a dungeon room needs at least one door shut
+behind you and no unsprung trap; an oasis or fountain is always safe; anywhere else in the wilds risks an ambush.<br/><br/>
+<b>Gear &amp; Loot</b><br/>
+Found weapons/armor start unidentified — a living Rogue assesses loot for free on pickup; otherwise identify
+it at the General Store (cheaper with a living Artificer). Once identified, equip it for free from the Items (I)
+panel in the field, or at the Blacksmith. The offhand slot takes a shield (AC) or a second weapon (dual-wield).<br/><br/>
+<b>Classes</b><br/>
+Fighter/Barbarian/Paladin/Monk/Ranger/Rogue lean martial; Cleric/Druid/Bard support; Sorcerer/Wizard/Warlock
+are pure casters; Paladin/Ranger/Artificer are hybrids who unlock spells at a higher level. Hover a disabled
+button anywhere for the reason it's unavailable.<br/><br/>
+<b>Save / Continue</b><br/>
+Up to 3 save slots (K in the field to save; Continue on the main menu to load). "Randomize Seed" on the
+main menu rerolls the whole world before you start a new adventure — it has no effect on a loaded save.
+`;
+
+function renderInstructions() {
+  const s = Game.state;
+  if (!s.showInstructions) { instructionsPanel.classList.add('hidden'); return; }
+  setHtmlIfChanged(instructionsDynamic, INSTRUCTIONS_HTML + '<br/>' + choiceButtons([['h', 'Close']]));
+  instructionsPanel.classList.remove('hidden');
 }
 
 function renderChargen() {
@@ -4315,6 +4694,7 @@ function render() {
   else if (s.mode === 'ITEM_USE') renderFieldItems();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
+  else if (s.mode === 'SAVE_MENU') renderSaveMenu();
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
   if (s.party) {
     renderRoster();
@@ -4324,6 +4704,7 @@ function render() {
     setHtmlIfChanged(rosterEl, '');
     logEl.textContent = '';
   }
+  renderInstructions();
 }
 
 function loop() {

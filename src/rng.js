@@ -15,12 +15,23 @@ export function mulberry32(seed) {
 }
 
 export class RNG {
-  constructor(seed) {
+  // WHAT: `state` is the stream's current internal position (mulberry32's
+  // running accumulator), separate from `seed` (the original starting
+  // value forks are still derived from). WHY: exposing it as a plain
+  // instance field — rather than hiding it in mulberry32's closure — is
+  // what lets save.js snapshot and exactly resume this stream's position;
+  // omit it to start fresh from `seed`, as every existing call site does.
+  constructor(seed, state) {
     this.seed = seed >>> 0;
-    this._next = mulberry32(this.seed);
+    this.a = (state === undefined ? this.seed : state) | 0;
   }
   // WHAT: float in [0,1).
-  next() { return this._next(); }
+  next() {
+    this.a = (this.a + 0x6d2b79f5) | 0;
+    let t = Math.imul(this.a ^ (this.a >>> 15), 1 | this.a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
   // WHAT: integer in [min,max] inclusive.
   int(min, max) { return Math.floor(this.next() * (max - min + 1)) + min; }
   // WHAT: true with probability p.

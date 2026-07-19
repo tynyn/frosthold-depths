@@ -82,7 +82,7 @@
   .hero.active { background: #1b2a20; }
   .hero .equip { color: #7a94a0; font-size: 11px; }
   .resources { margin-top: 8px; color: #ffd23a; }
-  #combat-panel, #shop-panel, #cast-panel, #item-panel {
+  #combat-panel, #shop-panel, #cast-panel, #item-panel, #save-menu-panel {
     grid-column: 2;
     order: 8;
     background: #1a1010;
@@ -141,6 +141,34 @@
     text-align: center;
   }
   .hidden { display: none !important; }
+
+  /* Instructions is an overlay independent of the mode grid (see
+     hideAllPanelsExcept's comment in main.js) — it sits on top of
+     whatever screen/panel is currently showing rather than occupying a
+     grid slot, and is scrollable since its content is long by design. */
+  #instructions-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(3, 5, 8, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #instructions-dynamic {
+    max-width: 640px;
+    max-height: 100%;
+    overflow-y: auto;
+    background: #0d1620;
+    border: 1px solid #3ad6ff;
+    border-radius: 8px;
+    padding: 16px 18px;
+    color: #cfead6;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  #instructions-dynamic b { color: #6ee7ff; }
 
   /* Tappable choice buttons — used by combat/shop/cast panels and the
      death/victory overlay. Each carries data-key matching a keyboard key,
@@ -227,6 +255,8 @@
         <button type="button" class="tc-btn tc-action" data-key="c">Cast</button>
         <button type="button" class="tc-btn tc-action" data-key="r">Rest</button>
         <button type="button" class="tc-btn tc-action" data-key="i">Items</button>
+        <button type="button" class="tc-btn tc-action" data-key="k">Save</button>
+        <button type="button" class="tc-btn tc-action" data-key="h">Help</button>
       </div>
     </div>
     <div id="menu-panel" class="hidden">
@@ -248,13 +278,17 @@
     <div id="shop-panel" class="hidden"></div>
     <div id="cast-panel" class="hidden"></div>
     <div id="item-panel" class="hidden"></div>
+    <div id="save-menu-panel" class="hidden"></div>
     <div id="overlay" class="hidden"></div>
     <div id="log"></div>
     <div id="help">
-      Move: Arrows/WASD &nbsp; Strafe: Q/E &nbsp; Interact/Search: Space/Enter &nbsp; Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items: I &nbsp;
-      Combat: 1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run, then a number to target &nbsp;
+      Move: Arrows/WASD &nbsp; Strafe: Q/E &nbsp; Interact/Search: Space/Enter &nbsp; Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items: I &nbsp; Save: K &nbsp; Help: H &nbsp;
+      Combat: 1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run &middot; 5 Steal, then a number to target &nbsp;
       (or use the on-screen controls / tap the buttons)
     </div>
+  </div>
+  <div id="instructions-panel" class="hidden">
+    <div id="instructions-dynamic"></div>
   </div>
   <!-- dist/bundle.js is generated from src/*.js by tools/build-bundle.mjs — a
        classic (non-module) script so the game runs via file:// with no

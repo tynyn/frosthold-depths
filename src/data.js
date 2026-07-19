@@ -587,3 +587,10 @@ export const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the durati
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_SEED = 1337;
+
+// ---------------------------------------------------------------------------
+// SAVE / CONTINUE
+// ---------------------------------------------------------------------------
+
+export const SAVE_SLOT_COUNT = 3; // hard cap — no more than 3 save sessions
+export const SAVE_STORAGE_PREFIX = 'frosthold-depths-save-';

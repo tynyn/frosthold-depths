@@ -29,7 +29,7 @@ const OUT_FILE = join(__dirname, '..', 'dist', 'bundle.js');
 const ORDER = [
   'data.js', 'rng.js', 'log.js', 'gridmap.js', 'fpview.js', 'automap.js',
   'party.js', 'monsters.js', 'spells.js', 'items.js', 'loot.js', 'combat.js', 'services.js',
-  'dungeon.js', 'town.js', 'overworld.js', 'main.js',
+  'dungeon.js', 'town.js', 'overworld.js', 'save.js', 'main.js',
 ];
 
 const IMPORT_RE = /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\/([\w.]+)\.js['"];?/g;
