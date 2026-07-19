@@ -157,13 +157,20 @@ export const RANDOM_NAMES = [
   'Quenna', 'Roderick', 'Sable', 'Torvald', 'Ulrica', 'Varek', 'Wren', 'Yseult',
 ];
 
+// WHAT: front rank (first FRONT_RANK_SIZE) is the ONLY rank monsters can
+// target while anyone in it is still active (see combat.js pickPartyTarget)
+// — it's the tank line, not just a melee-accuracy concern. Ordered so the
+// three melee fighters (who'd also eat a back-rank accuracy penalty on
+// Attack otherwise) soak that targeting, while the ranged Ranger and the
+// two casters — whose own attacks/spells don't care about rank at all —
+// sit safely in back until the front rank actually falls.
 export const DEFAULT_PARTY = [
   { name: 'Harkon', cls: 'Fighter', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
   { name: 'Seris', cls: 'Paladin', stats: { might: 13, intellect: 8, personality: 11, endurance: 12, speed: 10, accuracy: 10, luck: 9 } },
+  { name: 'Piper', cls: 'Rogue', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
   { name: 'Wend', cls: 'Ranger', stats: { might: 9, intellect: 9, personality: 8, endurance: 10, speed: 14, accuracy: 14, luck: 10 } },
   { name: 'Alma', cls: 'Cleric', stats: { might: 7, intellect: 9, personality: 15, endurance: 11, speed: 9, accuracy: 9, luck: 10 } },
   { name: 'Ondrei', cls: 'Sorcerer', stats: { might: 6, intellect: 15, personality: 8, endurance: 8, speed: 10, accuracy: 9, luck: 11 } },
-  { name: 'Piper', cls: 'Rogue', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
 ];
 
 export const CONDITIONS = {

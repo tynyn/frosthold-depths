@@ -82,7 +82,7 @@
   .hero.active { background: #1b2a20; }
   .hero .equip { color: #7a94a0; font-size: 11px; }
   .resources { margin-top: 8px; color: #ffd23a; }
-  #combat-panel, #shop-panel, #cast-panel, #item-panel, #save-menu-panel {
+  #combat-panel, #shop-panel, #cast-panel, #item-panel, #save-menu-panel, #reorder-panel {
     grid-column: 2;
     order: 8;
     background: #1a1010;
@@ -257,6 +257,7 @@
         <button type="button" class="tc-btn tc-action" data-key="i">Items</button>
         <button type="button" class="tc-btn tc-action" data-key="k">Save</button>
         <button type="button" class="tc-btn tc-action" data-key="h">Help</button>
+        <button type="button" class="tc-btn tc-action" data-key="p">Order</button>
       </div>
     </div>
     <div id="menu-panel" class="hidden">
@@ -279,10 +280,11 @@
     <div id="cast-panel" class="hidden"></div>
     <div id="item-panel" class="hidden"></div>
     <div id="save-menu-panel" class="hidden"></div>
+    <div id="reorder-panel" class="hidden"></div>
     <div id="overlay" class="hidden"></div>
     <div id="log"></div>
     <div id="help">
-      Move: Arrows/WASD &nbsp; Strafe: Q/E &nbsp; Interact/Search: Space/Enter &nbsp; Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items: I &nbsp; Save: K &nbsp; Help: H &nbsp;
+      Move: Arrows/WASD &nbsp; Strafe: Q/E &nbsp; Interact/Search: Space/Enter &nbsp; Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items: I &nbsp; Save: K &nbsp; Reorder Party: P &nbsp; Help: H &nbsp;
       Combat: 1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run &middot; 5 Steal, then a number to target &nbsp;
       (or use the on-screen controls / tap the buttons)
     </div>

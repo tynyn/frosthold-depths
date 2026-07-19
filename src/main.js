@@ -63,6 +63,7 @@ const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
 const itemPanel = document.getElementById('item-panel');
 const saveMenuPanel = document.getElementById('save-menu-panel');
+const reorderPanel = document.getElementById('reorder-panel');
 const instructionsPanel = document.getElementById('instructions-panel');
 const instructionsDynamic = document.getElementById('instructions-dynamic');
 
@@ -77,7 +78,7 @@ const CHARGEN_CLASS_ORDER = [
 // instructionsPanel is deliberately NOT in this list — it's a toggleable
 // overlay independent of mode (see renderInstructions), not a mode screen.
 function hideAllPanelsExcept(keep) {
-  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, saveMenuPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, saveMenuPanel, reorderPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
     if (el !== keep) el.classList.add('hidden');
   }
 }
@@ -970,6 +971,34 @@ function handleSaveMenuKey(key) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// REORDER PARTY — a field-only action, swapping live members' array
+// positions in place (there's no separate "draft" to commit/cancel the
+// way chargen's roster review has — every Up/Down click is immediate,
+// which is why this offers only "Done", not a "Cancel" that would imply
+// something reversible). WHY it matters: the first FRONT_RANK_SIZE
+// members are the ONLY ones monsters can target while any of them are
+// still active (combat.js pickPartyTarget) — this is a tanking/targeting
+// order, not just a melee-accuracy convenience.
+// ---------------------------------------------------------------------------
+
+function openReorderParty() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  s.mode = 'REORDER_PARTY';
+}
+
+function handleReorderPartyKey(key) {
+  const s = Game.state;
+  if (key === 'Escape' || key === 'Backspace' || key === 'done-reorder') { s.mode = 'FIELD'; return; }
+  const m = key.match(/^(up|down)-(\d+)$/);
+  if (!m) return;
+  const idx = parseInt(m[2], 10);
+  const members = s.party.members;
+  if (m[1] === 'up' && idx > 0) [members[idx - 1], members[idx]] = [members[idx], members[idx - 1]];
+  else if (m[1] === 'down' && idx < members.length - 1) [members[idx], members[idx + 1]] = [members[idx + 1], members[idx]];
+}
+
 function startChargen() {
   const s = Game.state;
   s.chargen = { roster: [], draft: freshDraft() };
@@ -1050,6 +1079,7 @@ function handleKey(key) {
   if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
   if (s.mode === 'ITEM_USE') { handleFieldItemKey(key); return; }
   if (s.mode === 'SAVE_MENU') { handleSaveMenuKey(key); return; }
+  if (s.mode === 'REORDER_PARTY') { handleReorderPartyKey(key); return; }
 
   switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
@@ -1064,6 +1094,7 @@ function handleKey(key) {
     case 'r': case 'R': restInField(); break;
     case 'i': case 'I': openFieldItems(); break;
     case 'k': case 'K': openSaveMenu(); break;
+    case 'p': case 'P': openReorderParty(); break;
     default: break;
   }
 }
@@ -1314,6 +1345,7 @@ function renderField() {
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
   saveMenuPanel.classList.add('hidden');
+  reorderPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -1342,6 +1374,7 @@ function renderCombat() {
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
   saveMenuPanel.classList.add('hidden');
+  reorderPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -1442,6 +1475,7 @@ function renderShop() {
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
   saveMenuPanel.classList.add('hidden');
+  reorderPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -1468,6 +1502,7 @@ function renderFieldCast() {
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
   saveMenuPanel.classList.add('hidden');
+  reorderPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
 }
 
@@ -1509,6 +1544,7 @@ function renderOverlay(text) {
   partyReviewPanel.classList.add('hidden');
   itemPanel.classList.add('hidden');
   saveMenuPanel.classList.add('hidden');
+  reorderPanel.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------------------
@@ -1564,6 +1600,24 @@ function renderSaveMenu() {
   hudEl.textContent = `${s.map.name} — save game`;
 }
 
+function renderReorderParty() {
+  const s = Game.state;
+  const rows = s.party.members.map((c, i) => {
+    const rank = i < FRONT_RANK_SIZE ? 'front' : 'back';
+    return `<div>${i + 1}. ${c.name} — ${c.cls} (${rank} rank) HP ${c.hp}/${c.maxHp} ` +
+      choiceButtons([
+        [`up-${i}`, '▲ Up', i > 0 ? null : 'already first'],
+        [`down-${i}`, '▼ Down', i < s.party.members.length - 1 ? null : 'already last'],
+      ]) + `</div>`;
+  }).join('');
+  const html = `<b>Reorder Party</b> — first ${FRONT_RANK_SIZE} are front rank (the only ones monsters can target while any of them are alive)<br/>` +
+    rows + '<br/>' + choiceButtons([['done-reorder', 'Done']]);
+  setHtmlIfChanged(reorderPanel, html);
+  hideAllPanelsExcept(reorderPanel);
+  reorderPanel.classList.remove('hidden');
+  hudEl.textContent = `${s.map.name} — reorder party`;
+}
+
 // WHAT: a toggleable reference overlay — off by default, reachable from
 // any screen via H, and never forced open by any mode transition. WHY:
 // it must sit on top of whatever else render() just drew, so this runs
@@ -1572,10 +1626,12 @@ function renderSaveMenu() {
 const INSTRUCTIONS_HTML = `
 <b>Controls</b><br/>
 Move: Arrows / WASD &nbsp; Strafe: Q / E &nbsp; Interact / Search for secret doors: Space or Enter<br/>
-Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items / Scrolls / Gear: I &nbsp; Save Game: K &nbsp; This panel: H<br/><br/>
-<b>Combat</b><br/>
+Auto-map: M &nbsp; Cast: C &nbsp; Rest: R &nbsp; Items / Scrolls / Gear: I &nbsp; Save Game: K &nbsp; Reorder Party: P &nbsp; This panel: H<br/><br/>
+<b>Combat &amp; Party Order</b><br/>
 1 Attack &middot; 2 Cast &middot; 3 Block &middot; 4 Run &middot; 5 Steal (Rogue only) — then a number to pick a target.<br/>
-Back-rank melee attacks suffer an accuracy penalty; ranged weapons and spells don't care about rank.<br/><br/>
+Back-rank melee attacks suffer an accuracy penalty; ranged weapons and spells don't care about rank. More
+importantly, the first 3 party members are the ONLY ones monsters can target while any of them are still
+standing — press P in the field to reorder who tanks that front line versus who's protected in back.<br/><br/>
 <b>Resting</b><br/>
 In town, use the Tavern. In the wilds or a dungeon, press R: a dungeon room needs at least one door shut
 behind you and no unsprung trap; an oasis or fountain is always safe; anywhere else in the wilds risks an ambush.<br/><br/>
@@ -1682,6 +1738,7 @@ function render() {
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
   else if (s.mode === 'SAVE_MENU') renderSaveMenu();
+  else if (s.mode === 'REORDER_PARTY') renderReorderParty();
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
   if (s.party) {
     renderRoster();
