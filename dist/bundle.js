@@ -3144,6 +3144,16 @@ function handleCombatKey(key) {
     }
     return;
   }
+  // Nothing is committed yet in any of the phases below — no SP spent, no
+  // turn taken — so backing out to ACTION (Attack/Cast/Block/Run again) is
+  // always free.
+  if (key === 'Escape' || key === 'Backspace') {
+    ui.phase = 'ACTION';
+    ui.spellChoices = null;
+    ui.spell = null;
+    ui.pendingAction = null;
+    return;
+  }
   if (ui.phase === 'TARGET_GROUP') {
     const idx = parseInt(key, 10) - 1;
     if (idx >= 0 && idx < combat.groups.length && !groupIsDefeated(combat.groups[idx])) {
@@ -3598,11 +3608,14 @@ function renderCombat() {
     html = `<b>${actor.name}'s turn</b><br/>` +
       choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run']]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
-    html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name]));
+    html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name])) +
+      '<br/>' + choiceButtons([['Escape', 'Cancel']]);
   } else if (ui.phase === 'SPELL_SELECT') {
-    html = 'Cast:<br/>' + choiceButtons(ui.spellChoices.map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost}sp)`]));
+    html = 'Cast:<br/>' + choiceButtons(ui.spellChoices.map((sp, i) => [String(i + 1), `${sp.name} (${sp.spCost}sp)`])) +
+      '<br/>' + choiceButtons([['Escape', 'Cancel']]);
   } else if (ui.phase === 'SPELL_TARGET_ALLY') {
-    html = 'Target ally:<br/>' + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
+    html = 'Target ally:<br/>' + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name])) +
+      '<br/>' + choiceButtons([['Escape', 'Cancel']]);
   }
   setHtmlIfChanged(combatPanel, html);
 }
