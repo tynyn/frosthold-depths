@@ -263,6 +263,26 @@ export const TAVERN_COSTS = {
 export const MAGIC_SHOP_SPELL_MARKUP = 25; // gold cost = spCost * markup
 
 // ---------------------------------------------------------------------------
+// ITEMS — General Store consumables
+// ---------------------------------------------------------------------------
+
+// WHAT: the full catalog a General Store can stock from. Each town rolls a
+// random subset (GENERAL_STORE_STOCK_SIZE) at generation time — not every
+// item appears in every town, and which ones do is deterministic per the
+// town's own seed like everything else procedural here.
+// effect vocabulary mirrors spells.js's castSpell: heal/restore_sp/cure/light.
+export const ITEMS = {
+  antidote: { id: 'antidote', name: 'Antidote', cost: 25, target: 'ally', effect: 'cure', cures: ['POISONED'], description: 'Cures poison in one ally.' },
+  healing_potion: { id: 'healing_potion', name: 'Healing Potion', cost: 40, target: 'ally', effect: 'heal', power: 15, description: 'Restores hit points to one ally.' },
+  sp_draught: { id: 'sp_draught', name: 'Restorative Draught', cost: 35, target: 'ally', effect: 'restore_sp', power: 8, description: 'Restores spell points to one ally.' },
+  smelling_salts: { id: 'smelling_salts', name: 'Smelling Salts', cost: 30, target: 'ally', effect: 'cure', cures: ['ASLEEP', 'UNCONSCIOUS'], description: 'Rouses a sleeping or unconscious ally.' },
+  purging_tonic: { id: 'purging_tonic', name: 'Purging Tonic', cost: 45, target: 'ally', effect: 'cure', cures: ['DISEASED'], description: 'Cures disease in one ally.' },
+  torch_oil: { id: 'torch_oil', name: 'Flask of Torch Oil', cost: 20, target: 'self', effect: 'light', power: 30, description: 'Brightens the passage, countering Darkness zones.' },
+};
+
+export const GENERAL_STORE_STOCK_SIZE = [4, 6]; // how many distinct items a given town's store carries
+
+// ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------
 
@@ -396,6 +416,17 @@ export const FPVIEW_TORCH_COLOR = [255, 176, 96]; // [r,g,b] torch-glow tint
 
 export const FPVIEW_GRID_COLOR = 'rgba(0,0,0,0.35)'; // floor/ceiling seam-line color
 export const FPVIEW_GRID_WIDTH = 1.5; // seam line stroke width, px
+
+// ---------------------------------------------------------------------------
+// AUTO-MAP
+// ---------------------------------------------------------------------------
+
+export const AUTOMAP_WALL_COLOR = '#3ad6ff'; // plain wall edge (and an undiscovered secret door)
+export const AUTOMAP_DOOR_COLOR = '#ffb454'; // door edge (and a found secret door) — visually distinct from a wall
+export const AUTOMAP_SPECIAL_COLOR = '#ffd23a'; // generic special-tile marker (chest/trap/fountain/etc.)
+export const AUTOMAP_SHOP_COLOR = '#3aff7a'; // shopkeeper-tile marker — only ever drawn on an explored cell,
+// which (since exploring a cell requires having stood on it) already means the party has visited that
+// shop at least once; there's no separate "encountered" flag to track.
 
 export const FPVIEW_STEP_DOLLY_MS = 120; // cosmetic forward/back push duration
 export const FPVIEW_BUMP_SHAKE_MS = 150; // wall-bump screen-shake duration

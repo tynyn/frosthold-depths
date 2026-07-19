@@ -5,7 +5,7 @@
 
 import {
   TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL,
-  MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL,
+  MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, ITEMS,
 } from './data.js';
 import { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } from './party.js';
 
@@ -133,6 +133,22 @@ export function learnSpell(party, character, spellId) {
   party.gold -= cost;
   character.knownSpells.push(spellId);
   return { success: true, message: `${character.name} learns ${spell.name}.` };
+}
+
+// ---------------------------------------------------------------------------
+// GENERAL STORE
+// ---------------------------------------------------------------------------
+
+// WHAT: buy one unit of a consumable into the party's shared item pool
+// (not equipped to anyone — that happens later, when it's used).
+export function buyItem(party, itemId, stock) {
+  const item = ITEMS[itemId];
+  if (!item) return { success: false, message: 'No such item.' };
+  if (!stock.includes(itemId)) return { success: false, message: 'Not sold here.' };
+  if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
+  party.gold -= item.cost;
+  party.items[itemId] = (party.items[itemId] || 0) + 1;
+  return { success: true, message: `The party buys a ${item.name}.` };
 }
 
 // ---------------------------------------------------------------------------

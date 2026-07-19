@@ -4,13 +4,24 @@
 // movement model; only the layout generator and tile specials differ.
 
 import { GridMap } from './gridmap.js';
-import { DIRS, EDGE, MAP_KIND, TOWN_SIZE } from './data.js';
+import { DIRS, EDGE, MAP_KIND, TOWN_SIZE, ITEMS, GENERAL_STORE_STOCK_SIZE } from './data.js';
 
 const STREET_STEP = 4;
 
 function isStreet(x, y) { return x % STREET_STEP === 0 || y % STREET_STEP === 0; }
 
-export const SHOP_TYPES = ['TEMPLE', 'BLACKSMITH', 'MAGIC_SHOP', 'TAVERN', 'TRAINING_GROUNDS'];
+export const SHOP_TYPES = ['TEMPLE', 'BLACKSMITH', 'MAGIC_SHOP', 'GENERAL_STORE', 'TAVERN', 'TRAINING_GROUNDS'];
+
+// WHAT: pick a random subset of the item catalog for one town's General
+// Store. WHY: rolled once at town-generation time (from the town's own rng
+// stream, so it's reproducible like everything else procedural here) —
+// not every item shows up in every town, and the store doesn't reroll on
+// each visit.
+function rollGeneralStoreStock(rng) {
+  const ids = rng.shuffle(Object.keys(ITEMS));
+  const count = rng.int(GENERAL_STORE_STOCK_SIZE[0], GENERAL_STORE_STOCK_SIZE[1]);
+  return ids.slice(0, Math.min(count, ids.length));
+}
 
 // WHAT: build a town map whose streets form one fully-connected lattice —
 // this makes "every shop reachable from the gate" true by construction, no
@@ -49,7 +60,9 @@ export function generateTown(rng, name) {
   const shopTiles = {};
   for (const shopType of SHOP_TYPES) {
     const [sx, sy] = pickCell();
-    map.cellAt(sx, sy).special = { type: 'SHOPKEEPER', payload: { service: shopType } };
+    const payload = { service: shopType };
+    if (shopType === 'GENERAL_STORE') payload.stock = rollGeneralStoreStock(rng);
+    map.cellAt(sx, sy).special = { type: 'SHOPKEEPER', payload };
     shopTiles[shopType] = { x: sx, y: sy };
   }
 

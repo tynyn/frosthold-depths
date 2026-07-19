@@ -28,7 +28,7 @@ const OUT_FILE = join(__dirname, '..', 'dist', 'bundle.js');
 // imports from files earlier in this list.
 const ORDER = [
   'data.js', 'rng.js', 'log.js', 'gridmap.js', 'fpview.js', 'automap.js',
-  'party.js', 'monsters.js', 'spells.js', 'combat.js', 'services.js',
+  'party.js', 'monsters.js', 'spells.js', 'items.js', 'combat.js', 'services.js',
   'dungeon.js', 'town.js', 'overworld.js', 'main.js',
 ];
 

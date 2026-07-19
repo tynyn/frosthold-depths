@@ -78,6 +78,7 @@ export function createDefaultParty() {
     gold: STARTING_GOLD,
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
+    items: {},
   };
 }
 
@@ -114,6 +115,7 @@ export function createPartyFromRoster(rosterEntries) {
     gold: STARTING_GOLD,
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
+    items: {},
   };
 }
 

@@ -271,6 +271,26 @@ const TAVERN_COSTS = {
 const MAGIC_SHOP_SPELL_MARKUP = 25; // gold cost = spCost * markup
 
 // ---------------------------------------------------------------------------
+// ITEMS — General Store consumables
+// ---------------------------------------------------------------------------
+
+// WHAT: the full catalog a General Store can stock from. Each town rolls a
+// random subset (GENERAL_STORE_STOCK_SIZE) at generation time — not every
+// item appears in every town, and which ones do is deterministic per the
+// town's own seed like everything else procedural here.
+// effect vocabulary mirrors spells.js's castSpell: heal/restore_sp/cure/light.
+const ITEMS = {
+  antidote: { id: 'antidote', name: 'Antidote', cost: 25, target: 'ally', effect: 'cure', cures: ['POISONED'], description: 'Cures poison in one ally.' },
+  healing_potion: { id: 'healing_potion', name: 'Healing Potion', cost: 40, target: 'ally', effect: 'heal', power: 15, description: 'Restores hit points to one ally.' },
+  sp_draught: { id: 'sp_draught', name: 'Restorative Draught', cost: 35, target: 'ally', effect: 'restore_sp', power: 8, description: 'Restores spell points to one ally.' },
+  smelling_salts: { id: 'smelling_salts', name: 'Smelling Salts', cost: 30, target: 'ally', effect: 'cure', cures: ['ASLEEP', 'UNCONSCIOUS'], description: 'Rouses a sleeping or unconscious ally.' },
+  purging_tonic: { id: 'purging_tonic', name: 'Purging Tonic', cost: 45, target: 'ally', effect: 'cure', cures: ['DISEASED'], description: 'Cures disease in one ally.' },
+  torch_oil: { id: 'torch_oil', name: 'Flask of Torch Oil', cost: 20, target: 'self', effect: 'light', power: 30, description: 'Brightens the passage, countering Darkness zones.' },
+};
+
+const GENERAL_STORE_STOCK_SIZE = [4, 6]; // how many distinct items a given town's store carries
+
+// ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------
 
@@ -405,6 +425,17 @@ const FPVIEW_TORCH_COLOR = [255, 176, 96]; // [r,g,b] torch-glow tint
 const FPVIEW_GRID_COLOR = 'rgba(0,0,0,0.35)'; // floor/ceiling seam-line color
 const FPVIEW_GRID_WIDTH = 1.5; // seam line stroke width, px
 
+// ---------------------------------------------------------------------------
+// AUTO-MAP
+// ---------------------------------------------------------------------------
+
+const AUTOMAP_WALL_COLOR = '#3ad6ff'; // plain wall edge (and an undiscovered secret door)
+const AUTOMAP_DOOR_COLOR = '#ffb454'; // door edge (and a found secret door) — visually distinct from a wall
+const AUTOMAP_SPECIAL_COLOR = '#ffd23a'; // generic special-tile marker (chest/trap/fountain/etc.)
+const AUTOMAP_SHOP_COLOR = '#3aff7a'; // shopkeeper-tile marker — only ever drawn on an explored cell,
+// which (since exploring a cell requires having stood on it) already means the party has visited that
+// shop at least once; there's no separate "encountered" flag to track.
+
 const FPVIEW_STEP_DOLLY_MS = 120; // cosmetic forward/back push duration
 const FPVIEW_BUMP_SHAKE_MS = 150; // wall-bump screen-shake duration
 const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
@@ -415,7 +446,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -930,7 +961,7 @@ function renderFPView(ctx, W, H, map, x, y, facing, tileset, viewDepth = FPVIEW_
 // WHY: shared across all three map kinds — reads the same `facing`/position
 // state fpview uses, with no per-kind branching.
 
-const { EDGE } = __mod['data'];
+const { EDGE, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR } = __mod['data'];
 
 // WHAT: mark a cell (and reveal its walls) as explored.
 // WHY: called once per step so the auto-map only shows visited territory.
@@ -941,6 +972,16 @@ function markExplored(map, x, y) {
 
 const FACING_ARROW = { N: '^', E: '>', S: 'v', W: '<' };
 
+// WHAT: which color an edge draws in — a door (or a found secret door)
+// reads as visually distinct from a plain wall; an undiscovered secret
+// still looks exactly like a wall, matching the FPV rule that secrets carry
+// no visual tell until searched out.
+function edgeColor(edgeState, found) {
+  if (edgeState === EDGE.DOOR) return AUTOMAP_DOOR_COLOR;
+  if (edgeState === EDGE.SECRET && found) return AUTOMAP_DOOR_COLOR;
+  return AUTOMAP_WALL_COLOR;
+}
+
 // WHAT: draw the explored portion of `map` into ctx, centered on the party.
 function renderAutoMap(ctx, W, H, map, x, y, facing) {
   ctx.fillStyle = '#0a0a0f';
@@ -950,9 +991,7 @@ function renderAutoMap(ctx, W, H, map, x, y, facing) {
   const originX = W / 2 - (x + 0.5) * cellPx;
   const originY = H / 2 - (y + 0.5) * cellPx;
 
-  ctx.strokeStyle = '#3ad6ff';
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#123';
 
   for (let cy = 0; cy < map.height; cy++) {
     for (let cx = 0; cx < map.width; cx++) {
@@ -960,19 +999,29 @@ function renderAutoMap(ctx, W, H, map, x, y, facing) {
       if (!cell.explored) continue;
       const px = originX + cx * cellPx;
       const py = originY + cy * cellPx;
+      ctx.fillStyle = '#123';
       ctx.fillRect(px, py, cellPx, cellPx);
 
-      ctx.beginPath();
-      if (cell.walls.N !== EDGE.OPEN) { ctx.moveTo(px, py); ctx.lineTo(px + cellPx, py); }
-      if (cell.walls.S !== EDGE.OPEN) { ctx.moveTo(px, py + cellPx); ctx.lineTo(px + cellPx, py + cellPx); }
-      if (cell.walls.W !== EDGE.OPEN) { ctx.moveTo(px, py); ctx.lineTo(px, py + cellPx); }
-      if (cell.walls.E !== EDGE.OPEN) { ctx.moveTo(px + cellPx, py); ctx.lineTo(px + cellPx, py + cellPx); }
-      ctx.stroke();
+      // Each edge draws in its own color — a cell can have a door on one
+      // side and a plain wall on another, so this can't be one strokeStyle
+      // for the whole cell the way the wall-only version was.
+      const edges = [
+        ['N', cell.walls.N, () => { ctx.moveTo(px, py); ctx.lineTo(px + cellPx, py); }],
+        ['S', cell.walls.S, () => { ctx.moveTo(px, py + cellPx); ctx.lineTo(px + cellPx, py + cellPx); }],
+        ['W', cell.walls.W, () => { ctx.moveTo(px, py); ctx.lineTo(px, py + cellPx); }],
+        ['E', cell.walls.E, () => { ctx.moveTo(px + cellPx, py); ctx.lineTo(px + cellPx, py + cellPx); }],
+      ];
+      for (const [dir, state, drawLine] of edges) {
+        if (state === EDGE.OPEN) continue;
+        ctx.strokeStyle = edgeColor(state, cell.secretFound[dir]);
+        ctx.beginPath();
+        drawLine();
+        ctx.stroke();
+      }
 
       if (cell.special) {
-        ctx.fillStyle = '#ffd23a';
+        ctx.fillStyle = cell.special.type === 'SHOPKEEPER' ? AUTOMAP_SHOP_COLOR : AUTOMAP_SPECIAL_COLOR;
         ctx.fillRect(px + cellPx * 0.35, py + cellPx * 0.35, cellPx * 0.3, cellPx * 0.3);
-        ctx.fillStyle = '#123';
       }
     }
   }
@@ -1064,6 +1113,7 @@ function createDefaultParty() {
     gold: STARTING_GOLD,
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
+    items: {},
   };
 }
 
@@ -1100,6 +1150,7 @@ function createPartyFromRoster(rosterEntries) {
     gold: STARTING_GOLD,
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
+    items: {},
   };
 }
 
@@ -1306,6 +1357,66 @@ function castSpell(spell, ctx) {
 }
 
     return { spellsForSchool, knownSpellsFor, findSpell, canCast, castSpell };
+  })();
+
+  // ---- src/items.js ----
+  __mod['items'] = (function () {
+// items.js
+// WHAT: General Store consumables — what an item does when used.
+// WHY: parallels spells.js (same effect vocabulary: heal/restore_sp/cure/
+// light) but items have no caster/SP cost — they just consume one count
+// from the party's shared item pool.
+
+const { ITEMS } = __mod['data'];
+
+function findItem(id) { return ITEMS[id] || null; }
+
+function ownedItems(party) {
+  return Object.entries(party.items || {})
+    .filter(([, count]) => count > 0)
+    .map(([id, count]) => ({ item: findItem(id), count }))
+    .filter((entry) => entry.item);
+}
+
+// WHAT: apply an item's effect. `ctx` = { party, targetCharacter, log, state }
+// — callers only supply what's relevant to that item's effect.
+function useItem(itemId, ctx) {
+  const item = findItem(itemId);
+  if (!item) return;
+  if (!ctx.party.items[itemId]) { ctx.log?.push(`No ${item.name} left.`); return; }
+  ctx.party.items[itemId] -= 1;
+  const target = ctx.targetCharacter;
+  switch (item.effect) {
+    case 'heal': {
+      target.hp = Math.min(target.maxHp, target.hp + item.power);
+      target.conditions = target.conditions.filter((c) => c !== 'UNCONSCIOUS');
+      ctx.log?.push(`${target.name} drinks a ${item.name} (+${item.power} HP).`);
+      break;
+    }
+    case 'restore_sp': {
+      target.sp = Math.min(target.maxSp, target.sp + item.power);
+      ctx.log?.push(`${target.name} drinks a ${item.name} (+${item.power} SP).`);
+      break;
+    }
+    case 'cure': {
+      target.conditions = target.conditions.filter((c) => !item.cures.includes(c));
+      ctx.log?.push(`${target.name} uses a ${item.name}.`);
+      break;
+    }
+    case 'light': {
+      if (ctx.state) {
+        ctx.state.lightTurns = (ctx.state.lightTurns || 0) + item.power;
+        ctx.log?.push(`The ${item.name} brightens the passage.`);
+      } else {
+        ctx.log?.push(`The ${item.name} fizzles here.`);
+      }
+      break;
+    }
+    default: break;
+  }
+}
+
+    return { findItem, ownedItems, useItem };
   })();
 
   // ---- src/combat.js ----
@@ -1545,7 +1656,7 @@ function performMonsterTurn(combat, party, groupIdx) {
 // onto a town shopkeeper tile. WHY: keeps all gold/gem/XP bookkeeping in one
 // place instead of scattered across town.js tile handlers.
 
-const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL } = __mod['data'];
+const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, ITEMS } = __mod['data'];
 const { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } = __mod['party'];
 
 // ---------------------------------------------------------------------------
@@ -1675,6 +1786,22 @@ function learnSpell(party, character, spellId) {
 }
 
 // ---------------------------------------------------------------------------
+// GENERAL STORE
+// ---------------------------------------------------------------------------
+
+// WHAT: buy one unit of a consumable into the party's shared item pool
+// (not equipped to anyone — that happens later, when it's used).
+function buyItem(party, itemId, stock) {
+  const item = ITEMS[itemId];
+  if (!item) return { success: false, message: 'No such item.' };
+  if (!stock.includes(itemId)) return { success: false, message: 'Not sold here.' };
+  if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
+  party.gold -= item.cost;
+  party.items[itemId] = (party.items[itemId] || 0) + 1;
+  return { success: true, message: `The party buys a ${item.name}.` };
+}
+
+// ---------------------------------------------------------------------------
 // TAVERN
 // ---------------------------------------------------------------------------
 
@@ -1703,7 +1830,7 @@ const RUMORS = [
   'The barkeep leans in: "Secret doors look just like walls. Search close."',
 ];
 
-    return { templeHealCost, templeHeal, templeRestoreSpCost, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, trainingCost, trainCharacter, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, RUMORS };
+    return { templeHealCost, templeHeal, templeRestoreSpCost, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, trainingCost, trainCharacter, buyWeapon, buyArmor, learnSpell, buyItem, buyFood, restAtTavern, RUMORS };
   })();
 
   // ---- src/dungeon.js ----
@@ -2077,13 +2204,24 @@ function verifyBossUnavoidable(level) {
 // movement model; only the layout generator and tile specials differ.
 
 const { GridMap } = __mod['gridmap'];
-const { DIRS, EDGE, MAP_KIND, TOWN_SIZE } = __mod['data'];
+const { DIRS, EDGE, MAP_KIND, TOWN_SIZE, ITEMS, GENERAL_STORE_STOCK_SIZE } = __mod['data'];
 
 const STREET_STEP = 4;
 
 function isStreet(x, y) { return x % STREET_STEP === 0 || y % STREET_STEP === 0; }
 
-const SHOP_TYPES = ['TEMPLE', 'BLACKSMITH', 'MAGIC_SHOP', 'TAVERN', 'TRAINING_GROUNDS'];
+const SHOP_TYPES = ['TEMPLE', 'BLACKSMITH', 'MAGIC_SHOP', 'GENERAL_STORE', 'TAVERN', 'TRAINING_GROUNDS'];
+
+// WHAT: pick a random subset of the item catalog for one town's General
+// Store. WHY: rolled once at town-generation time (from the town's own rng
+// stream, so it's reproducible like everything else procedural here) —
+// not every item shows up in every town, and the store doesn't reroll on
+// each visit.
+function rollGeneralStoreStock(rng) {
+  const ids = rng.shuffle(Object.keys(ITEMS));
+  const count = rng.int(GENERAL_STORE_STOCK_SIZE[0], GENERAL_STORE_STOCK_SIZE[1]);
+  return ids.slice(0, Math.min(count, ids.length));
+}
 
 // WHAT: build a town map whose streets form one fully-connected lattice —
 // this makes "every shop reachable from the gate" true by construction, no
@@ -2122,7 +2260,9 @@ function generateTown(rng, name) {
   const shopTiles = {};
   for (const shopType of SHOP_TYPES) {
     const [sx, sy] = pickCell();
-    map.cellAt(sx, sy).special = { type: 'SHOPKEEPER', payload: { service: shopType } };
+    const payload = { service: shopType };
+    if (shopType === 'GENERAL_STORE') payload.stock = rollGeneralStoreStock(rng);
+    map.cellAt(sx, sy).special = { type: 'SHOPKEEPER', payload };
     shopTiles[shopType] = { x: sx, y: sy };
   }
 
@@ -2313,7 +2453,8 @@ const { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, sch
 const { spawnGroup, randomMonsterForTag, groupIsDefeated } = __mod['monsters'];
 const { spellsForSchool, findSpell, castSpell, canCast } = __mod['spells'];
 const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn } = __mod['combat'];
-const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, RUMORS } = __mod['services'];
+const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS } = __mod['services'];
+const { findItem, ownedItems, useItem } = __mod['items'];
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
@@ -2339,6 +2480,7 @@ const chargenDynamic = document.getElementById('chargen-dynamic');
 const chargenNameInput = document.getElementById('chargen-name-input');
 const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
+const itemPanel = document.getElementById('item-panel');
 
 const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer', 'Robber'];
 
@@ -2346,7 +2488,7 @@ const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer'
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
 // visible, so each render* function calls this before showing its own.
 function hideAllPanelsExcept(keep) {
-  for (const el of [combatPanel, shopPanel, castPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
     if (el !== keep) el.classList.add('hidden');
   }
 }
@@ -2772,7 +2914,7 @@ function dispatchSpecial(special) {
       break;
     }
     case 'SHOPKEEPER': {
-      openShop(special.payload.service);
+      openShop(special.payload.service, special.payload.stock);
       break;
     }
     case 'NPC': {
@@ -3057,10 +3199,10 @@ function endActorTurn() {
 // SHOP FLOW
 // ---------------------------------------------------------------------------
 
-function openShop(serviceType) {
+function openShop(serviceType, stock) {
   const s = Game.state;
   s.mode = 'SHOP';
-  s.shop = { type: serviceType, charIdx: 0 };
+  s.shop = { type: serviceType, charIdx: 0, stock };
   s.log.push(`You approach the ${serviceType.replace('_', ' ').toLowerCase()}.`);
 }
 
@@ -3094,6 +3236,9 @@ function handleShopKey(key) {
       const list = spellsForSchool(school);
       if (n >= 1 && n <= list.length) say(learnSpell(s.party, c, list[n - 1].id));
     }
+  } else if (shop.type === 'GENERAL_STORE') {
+    const n = parseInt(key, 10);
+    if (n >= 1 && n <= shop.stock.length) say(buyItem(s.party, shop.stock[n - 1], shop.stock));
   } else if (shop.type === 'TRAINING_GROUNDS') {
     if (key === '1') say(trainCharacter(s.party, c));
   } else if (shop.type === 'TAVERN') {
@@ -3193,6 +3338,7 @@ function handleKey(key) {
   if (s.mode === 'COMBAT') { handleCombatKey(key); return; }
   if (s.mode === 'SHOP') { handleShopKey(key); return; }
   if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
+  if (s.mode === 'ITEM_USE') { handleFieldItemKey(key); return; }
 
   switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
@@ -3205,6 +3351,7 @@ function handleKey(key) {
     case 'm': case 'M': s.showAutoMap = !s.showAutoMap; break;
     case 'c': case 'C': openFieldCast(); break;
     case 'r': case 'R': restInField(); break;
+    case 'i': case 'I': openFieldItems(); break;
     default: break;
   }
 }
@@ -3294,6 +3441,43 @@ function handleFieldCastKey(key) {
 }
 
 // ---------------------------------------------------------------------------
+// FIELD ITEM USE — General Store consumables, drunk/applied outside combat.
+// Mirrors the field-cast flow: pick an owned item, then (if it targets an
+// ally) pick who; a self-target item (torch oil) applies immediately.
+// ---------------------------------------------------------------------------
+
+function openFieldItems() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  if (!ownedItems(s.party).length) { s.log.push('The party carries no usable items.'); return; }
+  s.mode = 'ITEM_USE';
+  s.fieldItem = { phase: 'ITEM', item: null };
+}
+
+function handleFieldItemKey(key) {
+  const s = Game.state;
+  const fi = s.fieldItem;
+  if (key === 'Escape' || key === 'Backspace') { s.mode = 'FIELD'; s.fieldItem = null; return; }
+  if (fi.phase === 'ITEM') {
+    const owned = ownedItems(s.party);
+    const entry = owned[parseInt(key, 10) - 1];
+    if (!entry) return;
+    fi.item = entry.item;
+    if (fi.item.target === 'ally') { fi.phase = 'TARGET'; return; }
+    useItem(fi.item.id, { party: s.party, log: s.log, state: s });
+    s.mode = 'FIELD'; s.fieldItem = null;
+    return;
+  }
+  if (fi.phase === 'TARGET') {
+    const idx = parseInt(key, 10) - 1;
+    if (idx >= 0 && idx < s.party.members.length) {
+      useItem(fi.item.id, { party: s.party, log: s.log, state: s, targetCharacter: s.party.members[idx] });
+      s.mode = 'FIELD'; s.fieldItem = null;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // RENDER
 // ---------------------------------------------------------------------------
 
@@ -3302,12 +3486,22 @@ function renderRoster() {
   const html = s.party.members.map((c, i) => {
     const dead = c.conditions.includes('DEAD');
     const cond = c.conditions.filter((x) => x !== 'DEAD').join(',');
+    const weaponName = c.equipment.weapon ? c.equipment.weapon.name : 'unarmed';
+    const armorName = c.equipment.armor ? c.equipment.armor.name : 'unarmored';
     return `<div class="hero${dead ? ' dead' : ''}${s.mode === 'COMBAT' && s.combatUI.actorIdx === i ? ' active' : ''}">
       <b>${i + 1}. ${c.name}</b> Lv${c.level} ${c.cls}<br/>
-      HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}
+      HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}<br/>
+      <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
-  }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>`;
+  }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
+    `<div class="resources">${itemsSummary(s.party.items)}</div>`;
   setHtmlIfChanged(rosterEl, html);
+}
+
+function itemsSummary(items) {
+  const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
+  if (!owned.length) return 'Items: none';
+  return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
 }
 
 // WHAT: advance and read the current step-dolly camera offset. WHY: called
@@ -3363,6 +3557,7 @@ function renderField() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -3389,6 +3584,7 @@ function renderCombat() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -3439,6 +3635,13 @@ function renderShop() {
         return [String(i + 1), label];
       }));
     }
+  } else if (s.shop.type === 'GENERAL_STORE') {
+    html += choiceButtons(s.shop.stock.map((id, i) => {
+      const item = findItem(id);
+      const label = `${item.name} (${item.cost}g)`;
+      if (s.party.gold < item.cost) return [String(i + 1), label, 'not enough gold'];
+      return [String(i + 1), label];
+    }));
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {
@@ -3458,6 +3661,7 @@ function renderShop() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -3482,7 +3686,25 @@ function renderFieldCast() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
+}
+
+function renderFieldItems() {
+  const s = Game.state;
+  const fi = s.fieldItem;
+  let html = '<b>Use Item</b><br/>';
+  if (fi.phase === 'ITEM') {
+    const owned = ownedItems(s.party);
+    html += choiceButtons(owned.map((entry, i) => [String(i + 1), `${entry.item.name} x${entry.count}`]));
+  } else if (fi.phase === 'TARGET') {
+    html += `Using ${fi.item.name} on:<br/>` + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
+  }
+  html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
+  setHtmlIfChanged(itemPanel, html);
+  hideAllPanelsExcept(itemPanel);
+  itemPanel.classList.remove('hidden');
+  hudEl.textContent = `${s.map.name} — using item`;
 }
 
 function renderOverlay(text) {
@@ -3495,6 +3717,7 @@ function renderOverlay(text) {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------------------
@@ -3592,6 +3815,7 @@ function render() {
   else if (s.mode === 'COMBAT') renderCombat();
   else if (s.mode === 'SHOP') renderShop();
   else if (s.mode === 'CAST') renderFieldCast();
+  else if (s.mode === 'ITEM_USE') renderFieldItems();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');

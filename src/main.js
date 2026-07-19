@@ -30,8 +30,9 @@ import {
 } from './combat.js';
 import {
   templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost,
-  trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, RUMORS,
+  trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS,
 } from './services.js';
+import { findItem, ownedItems, useItem } from './items.js';
 import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } from './dungeon.js';
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
@@ -57,6 +58,7 @@ const chargenDynamic = document.getElementById('chargen-dynamic');
 const chargenNameInput = document.getElementById('chargen-name-input');
 const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
+const itemPanel = document.getElementById('item-panel');
 
 const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer', 'Robber'];
 
@@ -64,7 +66,7 @@ const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer'
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
 // visible, so each render* function calls this before showing its own.
 function hideAllPanelsExcept(keep) {
-  for (const el of [combatPanel, shopPanel, castPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+  for (const el of [combatPanel, shopPanel, castPanel, itemPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
     if (el !== keep) el.classList.add('hidden');
   }
 }
@@ -490,7 +492,7 @@ function dispatchSpecial(special) {
       break;
     }
     case 'SHOPKEEPER': {
-      openShop(special.payload.service);
+      openShop(special.payload.service, special.payload.stock);
       break;
     }
     case 'NPC': {
@@ -775,10 +777,10 @@ function endActorTurn() {
 // SHOP FLOW
 // ---------------------------------------------------------------------------
 
-function openShop(serviceType) {
+function openShop(serviceType, stock) {
   const s = Game.state;
   s.mode = 'SHOP';
-  s.shop = { type: serviceType, charIdx: 0 };
+  s.shop = { type: serviceType, charIdx: 0, stock };
   s.log.push(`You approach the ${serviceType.replace('_', ' ').toLowerCase()}.`);
 }
 
@@ -812,6 +814,9 @@ function handleShopKey(key) {
       const list = spellsForSchool(school);
       if (n >= 1 && n <= list.length) say(learnSpell(s.party, c, list[n - 1].id));
     }
+  } else if (shop.type === 'GENERAL_STORE') {
+    const n = parseInt(key, 10);
+    if (n >= 1 && n <= shop.stock.length) say(buyItem(s.party, shop.stock[n - 1], shop.stock));
   } else if (shop.type === 'TRAINING_GROUNDS') {
     if (key === '1') say(trainCharacter(s.party, c));
   } else if (shop.type === 'TAVERN') {
@@ -911,6 +916,7 @@ function handleKey(key) {
   if (s.mode === 'COMBAT') { handleCombatKey(key); return; }
   if (s.mode === 'SHOP') { handleShopKey(key); return; }
   if (s.mode === 'CAST') { handleFieldCastKey(key); return; }
+  if (s.mode === 'ITEM_USE') { handleFieldItemKey(key); return; }
 
   switch (key) {
     case 'ArrowUp': case 'w': case 'W': step('F'); break;
@@ -923,6 +929,7 @@ function handleKey(key) {
     case 'm': case 'M': s.showAutoMap = !s.showAutoMap; break;
     case 'c': case 'C': openFieldCast(); break;
     case 'r': case 'R': restInField(); break;
+    case 'i': case 'I': openFieldItems(); break;
     default: break;
   }
 }
@@ -1012,6 +1019,43 @@ function handleFieldCastKey(key) {
 }
 
 // ---------------------------------------------------------------------------
+// FIELD ITEM USE — General Store consumables, drunk/applied outside combat.
+// Mirrors the field-cast flow: pick an owned item, then (if it targets an
+// ally) pick who; a self-target item (torch oil) applies immediately.
+// ---------------------------------------------------------------------------
+
+function openFieldItems() {
+  const s = Game.state;
+  if (s.mode !== 'FIELD') return;
+  if (!ownedItems(s.party).length) { s.log.push('The party carries no usable items.'); return; }
+  s.mode = 'ITEM_USE';
+  s.fieldItem = { phase: 'ITEM', item: null };
+}
+
+function handleFieldItemKey(key) {
+  const s = Game.state;
+  const fi = s.fieldItem;
+  if (key === 'Escape' || key === 'Backspace') { s.mode = 'FIELD'; s.fieldItem = null; return; }
+  if (fi.phase === 'ITEM') {
+    const owned = ownedItems(s.party);
+    const entry = owned[parseInt(key, 10) - 1];
+    if (!entry) return;
+    fi.item = entry.item;
+    if (fi.item.target === 'ally') { fi.phase = 'TARGET'; return; }
+    useItem(fi.item.id, { party: s.party, log: s.log, state: s });
+    s.mode = 'FIELD'; s.fieldItem = null;
+    return;
+  }
+  if (fi.phase === 'TARGET') {
+    const idx = parseInt(key, 10) - 1;
+    if (idx >= 0 && idx < s.party.members.length) {
+      useItem(fi.item.id, { party: s.party, log: s.log, state: s, targetCharacter: s.party.members[idx] });
+      s.mode = 'FIELD'; s.fieldItem = null;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // RENDER
 // ---------------------------------------------------------------------------
 
@@ -1020,12 +1064,22 @@ function renderRoster() {
   const html = s.party.members.map((c, i) => {
     const dead = c.conditions.includes('DEAD');
     const cond = c.conditions.filter((x) => x !== 'DEAD').join(',');
+    const weaponName = c.equipment.weapon ? c.equipment.weapon.name : 'unarmed';
+    const armorName = c.equipment.armor ? c.equipment.armor.name : 'unarmored';
     return `<div class="hero${dead ? ' dead' : ''}${s.mode === 'COMBAT' && s.combatUI.actorIdx === i ? ' active' : ''}">
       <b>${i + 1}. ${c.name}</b> Lv${c.level} ${c.cls}<br/>
-      HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}
+      HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}<br/>
+      <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
-  }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>`;
+  }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
+    `<div class="resources">${itemsSummary(s.party.items)}</div>`;
   setHtmlIfChanged(rosterEl, html);
+}
+
+function itemsSummary(items) {
+  const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
+  if (!owned.length) return 'Items: none';
+  return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
 }
 
 // WHAT: advance and read the current step-dolly camera offset. WHY: called
@@ -1081,6 +1135,7 @@ function renderField() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -1107,6 +1162,7 @@ function renderCombat() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -1157,6 +1213,13 @@ function renderShop() {
         return [String(i + 1), label];
       }));
     }
+  } else if (s.shop.type === 'GENERAL_STORE') {
+    html += choiceButtons(s.shop.stock.map((id, i) => {
+      const item = findItem(id);
+      const label = `${item.name} (${item.cost}g)`;
+      if (s.party.gold < item.cost) return [String(i + 1), label, 'not enough gold'];
+      return [String(i + 1), label];
+    }));
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {
@@ -1176,6 +1239,7 @@ function renderShop() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -1200,7 +1264,25 @@ function renderFieldCast() {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
+}
+
+function renderFieldItems() {
+  const s = Game.state;
+  const fi = s.fieldItem;
+  let html = '<b>Use Item</b><br/>';
+  if (fi.phase === 'ITEM') {
+    const owned = ownedItems(s.party);
+    html += choiceButtons(owned.map((entry, i) => [String(i + 1), `${entry.item.name} x${entry.count}`]));
+  } else if (fi.phase === 'TARGET') {
+    html += `Using ${fi.item.name} on:<br/>` + choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
+  }
+  html += '<br/>' + choiceButtons([['Escape', 'Cancel']]);
+  setHtmlIfChanged(itemPanel, html);
+  hideAllPanelsExcept(itemPanel);
+  itemPanel.classList.remove('hidden');
+  hudEl.textContent = `${s.map.name} — using item`;
 }
 
 function renderOverlay(text) {
@@ -1213,6 +1295,7 @@ function renderOverlay(text) {
   menuPanel.classList.add('hidden');
   chargenPanel.classList.add('hidden');
   partyReviewPanel.classList.add('hidden');
+  itemPanel.classList.add('hidden');
 }
 
 // ---------------------------------------------------------------------------
@@ -1310,6 +1393,7 @@ function render() {
   else if (s.mode === 'COMBAT') renderCombat();
   else if (s.mode === 'SHOP') renderShop();
   else if (s.mode === 'CAST') renderFieldCast();
+  else if (s.mode === 'ITEM_USE') renderFieldItems();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
