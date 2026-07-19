@@ -7,12 +7,12 @@
 import {
   DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED,
   DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE,
-  DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS,
+  DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SHIELDS, SPELLS,
   BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
-  SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
+  SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROGUE_BONUS, ROGUE_STEALTH_ENCOUNTER_MULTIPLIER,
   FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
   MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE,
-  SPELL_LEVEL_TO_CHAR_LEVEL, IDENTIFY_COST,
+  SPELL_LEVEL_TO_CHAR_LEVEL,
 } from './data.js';
 import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
@@ -27,13 +27,14 @@ import { spawnGroup, randomMonsterForTag, groupIsDefeated } from './monsters.js'
 import { spellsForSchool, findSpell, castSpell, canCast } from './spells.js';
 import {
   startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn,
+  performSteal,
 } from './combat.js';
 import {
   templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost,
-  trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS,
+  trainCharacter, trainingCost, buyWeapon, buyArmor, buyShield, learnSpell, buyFood, restAtTavern, buyItem, RUMORS,
 } from './services.js';
 import { findItem, ownedItems, useItem } from './items.js';
-import { identifyLoot, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } from './loot.js';
+import { identifyLoot, identifyCostFor, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } from './loot.js';
 import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } from './dungeon.js';
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
@@ -61,7 +62,10 @@ const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
 const itemPanel = document.getElementById('item-panel');
 
-const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer', 'Robber'];
+const CHARGEN_CLASS_ORDER = [
+  'Fighter', 'Barbarian', 'Paladin', 'Monk', 'Ranger', 'Rogue',
+  'Artificer', 'Cleric', 'Druid', 'Bard', 'Sorcerer', 'Wizard', 'Warlock',
+];
 
 // WHAT: hide every screen/panel except `keep`. WHY: MENU/CHARGEN/PARTY_REVIEW
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
@@ -256,6 +260,13 @@ function strafe(side) {
   step(dir);
 }
 
+// WHAT: a living Rogue's stealth shaves down every wandering/random
+// encounter roll (dungeon and overworld alike) — it never touches
+// scripted ENCOUNTER specials or ambushes, only the probability rolls.
+function partyStealthMultiplier(party) {
+  return party.members.some((m) => m.cls === 'Rogue' && isAlive(m)) ? ROGUE_STEALTH_ENCOUNTER_MULTIPLIER : 1;
+}
+
 // WHAT: the SOLE place a turn advances — random encounters + on-enter
 // specials fire here, never from rotate().
 function advanceTurn() {
@@ -266,6 +277,7 @@ function advanceTurn() {
     dispatchSpecial(cell.special);
     if (s.mode !== 'FIELD') return; // special changed mode (combat/shop/transition)
   }
+  const stealth = partyStealthMultiplier(s.party);
   if (s.map.kind === MAP_KIND.DUNGEON) {
     if (s.restSecuredRoomRect) {
       // Secured-room rest suppresses the normal wandering check entirely
@@ -275,7 +287,7 @@ function advanceTurn() {
       if (inRoomRect(s.x, s.y, s.restSecuredRoomRect)) {
         // still inside: no check at all
       } else {
-        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE * stealth)) startEncounterFlow();
         s.restSecuredRoomRect = null;
       }
     } else {
@@ -285,7 +297,7 @@ function advanceTurn() {
       s.dungeonTurnCounter += 1;
       if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
         s.dungeonTurnCounter = 0;
-        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE * stealth)) startEncounterFlow();
       }
     }
   } else if (s.map.kind === MAP_KIND.OVERWORLD) {
@@ -293,7 +305,7 @@ function advanceTurn() {
       // A brief no-roll grace period after resting at an oasis.
       s.oasisGraceSteps -= 1;
     } else {
-      const rate = encounterChanceForCell(s.map, s.x, s.y);
+      const rate = encounterChanceForCell(s.map, s.x, s.y) * stealth;
       if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
     }
   }
@@ -563,15 +575,15 @@ function interact() {
 }
 
 // WHAT: attempt to find a secret door in the wall directly ahead.
-// WHY: secret doors "look like walls" until searched out — Robbers are
+// WHY: secret doors "look like walls" until searched out — Rogues are
 // better at sensing them, per spec.
 function searchForSecret() {
   const s = Game.state;
   if (s.map.getEdge(s.x, s.y, s.facing) !== EDGE.SECRET) { s.log.push('You find nothing unusual.'); return; }
   const cell = s.map.cellAt(s.x, s.y);
   if (cell.secretFound[s.facing]) { s.log.push('You already found the hidden door here.'); return; }
-  const hasRobber = s.party.members.some((m) => m.cls === 'Robber' && isAlive(m));
-  const chance = SECRET_SEARCH_BASE_CHANCE + (hasRobber ? SECRET_SEARCH_ROBBER_BONUS : 0);
+  const hasRogue = s.party.members.some((m) => m.cls === 'Rogue' && isAlive(m));
+  const chance = SECRET_SEARCH_BASE_CHANCE + (hasRogue ? SECRET_SEARCH_ROGUE_BONUS : 0);
   if (s.rng.chance(chance)) {
     cell.secretFound[s.facing] = true;
     const { dx, dy } = DELTA[s.facing];
@@ -600,7 +612,7 @@ function openChest(special) {
   p.opened = true;
   s.log.push(`You find ${p.gold} gold${p.gems ? ` and ${p.gems} gem(s)` : ''} in the chest.`);
   if (p.loot) {
-    const assessor = s.party.members.find((m) => m.cls === 'Robber' && isAlive(m));
+    const assessor = s.party.members.find((m) => m.cls === 'Rogue' && isAlive(m));
     grantLoot(s.party, p.loot, !!assessor);
     s.log.push(assessor
       ? `${assessor.name}'s practiced eye names the find: ${lootName(p.loot)}.`
@@ -727,6 +739,10 @@ function handleCombatKey(key) {
       performRun(combat, s.party);
       finalizeCombatIfEnded();
       if (s.mode === 'COMBAT') endActorTurn();
+    } else if (key === '5') {
+      const actor = s.party.members[ui.actorIdx];
+      if (actor.cls !== 'Rogue') return; // dead-option guard: button is disabled for non-Rogues
+      ui.phase = 'TARGET_GROUP'; ui.pendingAction = 'steal';
     }
     return;
   }
@@ -743,7 +759,8 @@ function handleCombatKey(key) {
   if (ui.phase === 'TARGET_GROUP') {
     const idx = parseInt(key, 10) - 1;
     if (idx >= 0 && idx < combat.groups.length && !groupIsDefeated(combat.groups[idx])) {
-      performAttack(combat, s.party, ui.actorIdx, idx);
+      if (ui.pendingAction === 'steal') performSteal(combat, s.party, ui.actorIdx, idx);
+      else performAttack(combat, s.party, ui.actorIdx, idx);
       endActorTurn();
     }
     return;
@@ -823,9 +840,13 @@ function handleShopKey(key) {
     if (key === '3') { for (const msg of templeFullService(s.party)) s.log.push(msg); }
   } else if (shop.type === 'BLACKSMITH') {
     const n = parseInt(key, 10);
-    const gearOffset = WEAPONS.length + ARMORS.length;
+    const shieldOffset = WEAPONS.length + ARMORS.length;
+    const offhandOffset = shieldOffset + SHIELDS.length;
+    const gearOffset = offhandOffset + WEAPONS.length;
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
-    else if (n > WEAPONS.length && n <= gearOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > WEAPONS.length && n <= shieldOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > shieldOffset && n <= offhandOffset) say(buyShield(s.party, c, SHIELDS[n - shieldOffset - 1].id));
+    else if (n > offhandOffset && n <= gearOffset) say(buyWeapon(s.party, c, WEAPONS[n - offhandOffset - 1].id, 'offhand'));
     else if (n > gearOffset && n <= gearOffset + s.party.unclaimedGear.length) say(equipLoot(s.party, n - gearOffset - 1, c));
   } else if (shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
@@ -893,9 +914,9 @@ function handleChargenKey(key) {
     return;
   }
   if (key === 'random-name') { chargenNameInput.value = s.chargenRng.choice(RANDOM_NAMES); return; }
-  if (/^[1-6]$/.test(key)) {
-    const cls = CHARGEN_CLASS_ORDER[parseInt(key, 10) - 1];
-    if (!statShortfalls(cls, cg.draft.stats).length) cg.draft.cls = cls;
+  if (key.startsWith('cls-')) {
+    const cls = key.slice(4);
+    if (CHARGEN_CLASS_ORDER.includes(cls) && !statShortfalls(cls, cg.draft.stats).length) cg.draft.cls = cls;
     return;
   }
   if (key === 'add-to-roster') { addDraftToRoster(); return; }
@@ -1111,10 +1132,11 @@ function renderRoster() {
     const cond = c.conditions.filter((x) => x !== 'DEAD').join(',');
     const weaponName = c.equipment.weapon ? c.equipment.weapon.name : 'unarmed';
     const armorName = c.equipment.armor ? c.equipment.armor.name : 'unarmored';
+    const offhandName = c.equipment.offhand ? ` + ${c.equipment.offhand.name}` : '';
     return `<div class="hero${dead ? ' dead' : ''}${s.mode === 'COMBAT' && s.combatUI.actorIdx === i ? ' active' : ''}">
       <b>${i + 1}. ${c.name}</b> Lv${c.level} ${c.cls}<br/>
       HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}<br/>
-      <span class="equip">${weaponName} / ${armorName}</span>
+      <span class="equip">${weaponName}${offhandName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
     `<div class="resources">${itemsSummary(s.party)}</div>` +
@@ -1230,8 +1252,9 @@ function renderCombat() {
     let castReason = null;
     if (!castable.length) castReason = 'no spells known';
     else if (!castable.some((sp) => canCast(actor, sp))) castReason = 'not enough SP';
+    const stealReason = actor.cls === 'Rogue' ? null : 'Rogue only';
     html = `<b>${actor.name}'s turn</b><br/>` +
-      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run']]);
+      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run'], ['5', 'Steal', stealReason]]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
     html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name])) +
       '<br/>' + choiceButtons([['Escape', 'Cancel']]);
@@ -1257,10 +1280,14 @@ function renderShop() {
       ['3', 'Full party heal/cure'],
     ]);
   } else if (s.shop.type === 'BLACKSMITH') {
-    html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
-      choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
+    const shieldOffset = WEAPONS.length + ARMORS.length;
+    const offhandOffset = shieldOffset + SHIELDS.length;
+    const gearOffset = offhandOffset + WEAPONS.length;
+    html += `Weapons (main hand):<br/>` + choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
+      `Armor:<br/>` + choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`])) + '<br/>' +
+      `Shields:<br/>` + choiceButtons(SHIELDS.map((sh, i) => [String(i + 1 + shieldOffset), `${sh.name} ${sh.cost}g`])) + '<br/>' +
+      `Offhand weapon (dual-wield):<br/>` + choiceButtons(WEAPONS.map((w, i) => [String(i + 1 + offhandOffset), `${w.name} ${w.cost}g`]));
     if (s.party.unclaimedGear.length) {
-      const gearOffset = WEAPONS.length + ARMORS.length;
       html += `<br/>Identified loot, free to equip on ${c.name}:<br/>` +
         choiceButtons(s.party.unclaimedGear.map((drop, i) => [String(i + 1 + gearOffset), `${lootName(drop)} (free)`]));
     }
@@ -1286,10 +1313,11 @@ function renderShop() {
       return [String(i + 1), label];
     }));
     if (s.party.unidentifiedLoot.length) {
+      const identifyCost = identifyCostFor(s.party);
       html += `<br/>Unidentified finds:<br/>` +
         choiceButtons(s.party.unidentifiedLoot.map((drop, i) => {
-          const label = `Unknown item (identify: ${IDENTIFY_COST}g)`;
-          if (s.party.gold < IDENTIFY_COST) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
+          const label = `Unknown item (identify: ${identifyCost}g)`;
+          if (s.party.gold < identifyCost) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
           return [String(i + 1 + s.shop.stock.length), label];
         }));
     }
@@ -1405,12 +1433,12 @@ function renderChargen() {
   const statsHtml = STATS.map((stat) => `${stat[0].toUpperCase()}${stat.slice(1)} <b>${cg.draft.stats[stat]}</b>`).join(' &nbsp; ');
   const total = STATS.reduce((sum, stat) => sum + cg.draft.stats[stat], 0);
 
-  const classButtons = CHARGEN_CLASS_ORDER.map((cls, i) => {
+  const classButtons = CHARGEN_CLASS_ORDER.map((cls) => {
     const info = CLASSES[cls];
     const short = statShortfalls(cls, cg.draft.stats);
     const schoolText = info.spellSchool ? ` — ${info.spellSchool} spells${info.spellSchoolLevel > 1 ? ` at Lv${info.spellSchoolLevel}` : ''}` : '';
     const label = `${cls} (${info.combatRole}, d${info.hitDie} HP${schoolText})${cg.draft.cls === cls ? ' [chosen]' : ''}`;
-    return short.length ? [String(i + 1), label, `needs ${short.join(', ')}`] : [String(i + 1), label, null];
+    return short.length ? [`cls-${cls}`, label, `needs ${short.join(', ')}`] : [`cls-${cls}`, label, null];
   });
 
   let previewHtml = '';

@@ -58,41 +58,76 @@ const STATS = ['might', 'intellect', 'personality', 'endurance', 'speed', 'accur
 
 // WHAT: spellSchoolLevel is the character LEVEL at which a class gains
 // access to its spellSchool (and starts casting/learning at all). Pure
-// casters get it from level 1; hybrids (Paladin, Archer) get it delayed;
-// Knight/Robber never gain a school (spellSchool: null).
-// statMinimums: rolled-stat floors (4d6-drop-lowest, range 3-18) character
-// creation checks before letting a class be chosen; a class with no entry
-// for a stat has no floor on it.
+// casters get it from level 1; hybrids (Paladin, Ranger, Artificer) get it
+// delayed; Fighter/Barbarian/Monk/Rogue never gain a school (spellSchool:
+// null). statMinimums: rolled-stat floors (4d6-drop-lowest, range 3-18)
+// character creation checks before letting a class be chosen; a class with
+// no entry for a stat has no floor on it.
 const CLASSES = {
-  Knight: {
-    name: 'Knight', hitDie: 10, spellSchool: null, combatRole: 'melee',
+  Fighter: {
+    name: 'Fighter', hitDie: 10, spellSchool: null, combatRole: 'melee',
     statMods: { might: 3, endurance: 2, accuracy: 1, intellect: -2, personality: -2 },
     statMinimums: { might: 9 },
+  },
+  Barbarian: {
+    name: 'Barbarian', hitDie: 12, spellSchool: null, combatRole: 'melee',
+    statMods: { might: 4, endurance: 3, intellect: -3, personality: -2 },
+    statMinimums: { might: 10 },
   },
   Paladin: {
     name: 'Paladin', hitDie: 9, spellSchool: 'cleric', spellSchoolLevel: 3, combatRole: 'melee',
     statMods: { might: 2, endurance: 1, personality: 1 },
     statMinimums: { might: 8, personality: 8 },
   },
-  Archer: {
-    name: 'Archer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
+  Monk: {
+    name: 'Monk', hitDie: 8, spellSchool: null, combatRole: 'melee',
+    statMods: { speed: 3, accuracy: 2, might: 1, personality: -2 },
+    statMinimums: { speed: 9 },
+  },
+  Ranger: {
+    name: 'Ranger', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
     statMods: { accuracy: 3, speed: 2, might: -1 },
     statMinimums: { accuracy: 9 },
+  },
+  Rogue: {
+    name: 'Rogue', hitDie: 8, spellSchool: null, combatRole: 'skill',
+    statMods: { luck: 3, speed: 2, accuracy: 1, personality: -2 },
+    statMinimums: { luck: 9 },
+  },
+  Artificer: {
+    name: 'Artificer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 3, combatRole: 'skill',
+    statMods: { intellect: 2, luck: 1, accuracy: 1, might: -1 },
+    statMinimums: { intellect: 8 },
   },
   Cleric: {
     name: 'Cleric', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
     statMods: { personality: 3, endurance: 1, might: -2 },
     statMinimums: { personality: 9 },
   },
+  Druid: {
+    name: 'Druid', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
+    statMods: { personality: 2, endurance: 2, might: -1, intellect: -1 },
+    statMinimums: { personality: 8, endurance: 8 },
+  },
+  Bard: {
+    name: 'Bard', hitDie: 6, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
+    statMods: { personality: 2, luck: 2, intellect: 1, might: -2, endurance: -2 },
+    statMinimums: { personality: 8 },
+  },
   Sorcerer: {
     name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
     statMods: { intellect: 3, luck: 1, endurance: -2, might: -2 },
     statMinimums: { intellect: 9 },
   },
-  Robber: {
-    name: 'Robber', hitDie: 8, spellSchool: null, combatRole: 'skill',
-    statMods: { luck: 3, speed: 2, accuracy: 1, personality: -2 },
-    statMinimums: { luck: 9 },
+  Wizard: {
+    name: 'Wizard', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
+    statMods: { intellect: 4, luck: -1, endurance: -2, might: -3 },
+    statMinimums: { intellect: 10 },
+  },
+  Warlock: {
+    name: 'Warlock', hitDie: 7, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
+    statMods: { personality: 2, intellect: 1, luck: 2, endurance: -2, might: -2 },
+    statMinimums: { personality: 8 },
   },
 };
 
@@ -131,12 +166,12 @@ const RANDOM_NAMES = [
 ];
 
 const DEFAULT_PARTY = [
-  { name: 'Harkon', cls: 'Knight', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
+  { name: 'Harkon', cls: 'Fighter', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
   { name: 'Seris', cls: 'Paladin', stats: { might: 13, intellect: 8, personality: 11, endurance: 12, speed: 10, accuracy: 10, luck: 9 } },
-  { name: 'Wend', cls: 'Archer', stats: { might: 9, intellect: 9, personality: 8, endurance: 10, speed: 14, accuracy: 14, luck: 10 } },
+  { name: 'Wend', cls: 'Ranger', stats: { might: 9, intellect: 9, personality: 8, endurance: 10, speed: 14, accuracy: 14, luck: 10 } },
   { name: 'Alma', cls: 'Cleric', stats: { might: 7, intellect: 9, personality: 15, endurance: 11, speed: 9, accuracy: 9, luck: 10 } },
   { name: 'Ondrei', cls: 'Sorcerer', stats: { might: 6, intellect: 15, personality: 8, endurance: 8, speed: 10, accuracy: 9, luck: 11 } },
-  { name: 'Piper', cls: 'Robber', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
+  { name: 'Piper', cls: 'Rogue', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
 ];
 
 const CONDITIONS = {
@@ -233,12 +268,19 @@ const BOSS = {
 // ITEMS / SHOPS
 // ---------------------------------------------------------------------------
 
+// WHAT: spBonus on a weapon feeds maxSp() (party.js) — the classic
+// caster's-focus-item trope (a wand/staff channels magic) without a
+// separate weapon category or spellcasting-accuracy mechanic (spells don't
+// roll to hit in this engine, so there's nothing else for a "caster
+// weapon" to boost).
 const WEAPONS = [
   { id: 'dagger', name: 'Dagger', cost: 15, dmg: [1, 4] },
   { id: 'handaxe', name: 'Hand Axe', cost: 20, dmg: [1, 6] },
   { id: 'shortsword', name: 'Short Sword', cost: 40, dmg: [2, 5] },
   { id: 'mace', name: 'Mace', cost: 35, dmg: [2, 6] },
+  { id: 'wand', name: 'Wand', cost: 50, dmg: [1, 3], spBonus: 3 },
   { id: 'longsword', name: 'Long Sword', cost: 90, dmg: [3, 8] },
+  { id: 'staff', name: 'Staff', cost: 90, dmg: [2, 5], spBonus: 5 },
   { id: 'battleaxe', name: 'Battle Axe', cost: 100, dmg: [3, 9] },
   { id: 'warhammer', name: 'War Hammer', cost: 150, dmg: [4, 10] },
   { id: 'shortbow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
@@ -253,6 +295,28 @@ const ARMORS = [
   { id: 'banded', name: 'Banded Mail', cost: 150, ac: 8 },
   { id: 'plate', name: 'Plate Armor', cost: 220, ac: 10 },
 ];
+
+// WHAT: the offhand slot — a shield (AC bonus) or, instead, a second
+// weapon for dual-wielding (see OFFHAND_DUAL_WIELD_DAMAGE_BONUS in
+// combat.js) — never both; it's one slot, the player's choice.
+const SHIELDS = [
+  { id: 'buckler', name: 'Buckler', cost: 25, ac: 1 },
+  { id: 'kite_shield', name: 'Kite Shield', cost: 60, ac: 2 },
+  { id: 'tower_shield', name: 'Tower Shield', cost: 120, ac: 4 },
+];
+
+const OFFHAND_DUAL_WIELD_DAMAGE_BONUS = 2; // flat, added when the offhand holds a second weapon instead of a shield
+
+const MONK_UNARMED_DAMAGE_BONUS = 3; // flat, only when no weapon is equipped
+const MONK_UNARMORED_AC_BONUS = 2; // flat, only when no armor is equipped ("martial training")
+const DRUID_NATURAL_AC_BONUS = 1; // flat, always ("thick hide/bark-skin")
+const BARBARIAN_RAGE_HP_THRESHOLD = 0.5; // fraction of maxHp
+const BARBARIAN_RAGE_DAMAGE_BONUS = 3; // flat, only below the threshold
+const ROGUE_BACKSTAB_DAMAGE_BONUS = 3; // flat, every Rogue attack
+const WARLOCK_LIFESTEAL_FRACTION = 0.25; // fraction of damage dealt, healed to self on a hit
+const ROGUE_STEALTH_ENCOUNTER_MULTIPLIER = 0.7; // applied to encounter chance while a living Rogue is in the party
+const ROGUE_PICKPOCKET_CHANCE = 0.6;
+const ROGUE_PICKPOCKET_GOLD_FRACTION = 0.3; // fraction of the target group's remaining gold value
 
 const TEMPLE_COSTS = {
   healPerHp: 2,
@@ -317,9 +381,11 @@ const COMBAT_LOOT_DROP_CHANCE = 0.2; // beyond gold, per victory
 const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
 
 // WHAT: gold cost to have one unidentified loot item appraised at the
-// General Store. A living Robber assesses loot for free the moment it's
-// picked up instead — no store trip needed.
+// General Store. A living Rogue assesses loot for free the moment it's
+// picked up instead — no store trip needed; a living Artificer (no Rogue
+// present) still pays, but at ARTIFICER_IDENTIFY_DISCOUNT off.
 const IDENTIFY_COST = 1;
+const ARTIFICER_IDENTIFY_DISCOUNT = 0.5;
 
 // WHAT: spell scrolls — each references an existing SPELLS entry by id.
 // `learnable: true` means using it teaches the spell permanently instead of
@@ -353,17 +419,25 @@ const SCROLLS = {
 // counter the Tavern already spends.
 const FOOD_PACKET_AMOUNT = 3;
 
-// WHAT: sensible starting weapon+armor per class — every character used to
-// begin with equipment: {weapon:null, armor:null}, i.e. genuinely unarmed
-// and unarmored until a Blacksmith visit. That was never a design choice,
-// just a gap; this is what a fresh character is handed at creation.
+// WHAT: sensible starting weapon+armor(+offhand) per class — every
+// character used to begin with equipment: {weapon:null, armor:null}, i.e.
+// genuinely unarmed and unarmored until a Blacksmith visit. That was never
+// a design choice, just a gap; this is what a fresh character is handed at
+// creation. Monk deliberately gets no weapon — see MONK_UNARMED_DAMAGE_BONUS.
 const CLASS_STARTING_GEAR = {
-  Knight: { weapon: 'longsword', armor: 'leather' },
-  Paladin: { weapon: 'longsword', armor: 'leather' },
-  Archer: { weapon: 'shortbow', armor: 'leather' },
+  Fighter: { weapon: 'longsword', armor: 'leather', offhand: 'buckler' },
+  Barbarian: { weapon: 'battleaxe', armor: 'studded' },
+  Paladin: { weapon: 'longsword', armor: 'leather', offhand: 'buckler' },
+  Monk: { armor: 'robe' },
+  Ranger: { weapon: 'shortbow', armor: 'leather' },
+  Rogue: { weapon: 'shortsword', armor: 'leather' },
+  Artificer: { weapon: 'wand', armor: 'leather' },
   Cleric: { weapon: 'mace', armor: 'robe' },
+  Druid: { weapon: 'mace', armor: 'leather' },
+  Bard: { weapon: 'shortsword', armor: 'robe' },
   Sorcerer: { weapon: 'dagger', armor: 'robe' },
-  Robber: { weapon: 'shortsword', armor: 'leather' },
+  Wizard: { weapon: 'staff', armor: 'robe' },
+  Warlock: { weapon: 'dagger', armor: 'robe' },
 };
 
 // ---------------------------------------------------------------------------
@@ -414,7 +488,7 @@ const DUNGEON_CHEST_GOLD = [10, 60];
 const DUNGEON_CHEST_GEM_CHANCE = 0.3;
 const DUNGEON_DARKNESS_VIEW_DEPTH = 1;
 const SECRET_SEARCH_BASE_CHANCE = 0.5;
-const SECRET_SEARCH_ROBBER_BONUS = 0.3;
+const SECRET_SEARCH_ROGUE_BONUS = 0.3;
 
 // ---------------------------------------------------------------------------
 // PROCGEN — OVERWORLD
@@ -522,7 +596,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, SCROLLS, FOOD_PACKET_AMOUNT, CLASS_STARTING_GEAR, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, SHIELDS, OFFHAND_DUAL_WIELD_DAMAGE_BONUS, MONK_UNARMED_DAMAGE_BONUS, MONK_UNARMORED_AC_BONUS, DRUID_NATURAL_AC_BONUS, BARBARIAN_RAGE_HP_THRESHOLD, BARBARIAN_RAGE_DAMAGE_BONUS, ROGUE_BACKSTAB_DAMAGE_BONUS, WARLOCK_LIFESTEAL_FRACTION, ROGUE_STEALTH_ENCOUNTER_MULTIPLIER, ROGUE_PICKPOCKET_CHANCE, ROGUE_PICKPOCKET_GOLD_FRACTION, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, ARTIFICER_IDENTIFY_DISCOUNT, SCROLLS, FOOD_PACKET_AMOUNT, CLASS_STARTING_GEAR, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROGUE_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -1119,7 +1193,7 @@ function renderAutoMap(ctx, W, H, map, x, y, facing) {
 // WHY: centralizes HP/SP/AC/XP formulas so combat/services/training all
 // agree on how a character's numbers are computed.
 
-const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS, STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, CLASS_STARTING_GEAR, WEAPONS, ARMORS } = __mod['data'];
+const { CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS, STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, CLASS_STARTING_GEAR, WEAPONS, ARMORS, SHIELDS, MONK_UNARMORED_AC_BONUS, DRUID_NATURAL_AC_BONUS } = __mod['data'];
 
 // WHAT: max HP for a character at their current level.
 function maxHp(character) {
@@ -1129,8 +1203,9 @@ function maxHp(character) {
 
 // WHAT: the spell school this character currently has access to, or null.
 // WHY: single source of truth for "can this character cast/learn spells" —
-// Paladin/Archer are hybrids who only unlock their school at a delayed
-// class-defined level (CLASSES[cls].spellSchoolLevel); Knight/Robber never do.
+// Paladin/Ranger/Artificer are hybrids who only unlock their school at a
+// delayed class-defined level (CLASSES[cls].spellSchoolLevel); Fighter/
+// Barbarian/Monk/Rogue never do.
 function schoolFor(character) {
   const cls = CLASSES[character.cls];
   if (!cls.spellSchool) return null;
@@ -1138,43 +1213,59 @@ function schoolFor(character) {
   return cls.spellSchool;
 }
 
-// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
-// Zero until the character actually has school access (see schoolFor).
+// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric),
+// plus a flat bonus from an equipped wand/staff (weapon.spBonus). Zero
+// until the character actually has school access (see schoolFor) — a
+// caster weapon doesn't grant SP on its own without training to channel it.
 function maxSp(character) {
   const school = schoolFor(character);
   if (!school) return 0;
   const stat = school === 'sorcerer' ? character.stats.intellect : character.stats.personality;
-  return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL;
+  const weaponBonus = character.equipment.weapon?.spBonus || 0;
+  return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL + weaponBonus;
 }
 
 // WHAT: grant every level-1 spell of `school` the character doesn't already
 // know. WHY: shared by character creation (starting spells) and level-up
-// (a Paladin/Archer crossing their spellSchoolLevel threshold).
+// (a Paladin/Ranger/Artificer crossing their spellSchoolLevel threshold).
 function grantLevelOneSpells(character, school) {
   for (const spell of SPELLS[school]) {
     if (spell.spellLevel === 1 && !character.knownSpells.includes(spell.id)) character.knownSpells.push(spell.id);
   }
 }
 
-// WHAT: armor class from equipped armor + Speed-derived dodge.
+// WHAT: armor class from equipped armor + offhand (a shield adds its own
+// AC; a second weapon there adds none) + Speed-derived dodge + class
+// passives: a Monk fighting with no armor at all gets a bonus from martial
+// training, and a Druid always gets a small "natural hide" bonus.
 function armorClass(character) {
   const armorBonus = character.equipment.armor ? character.equipment.armor.ac : 0;
-  return AC_BASE + armorBonus + Math.floor(character.stats.speed * AC_PER_SPEED) + (character.combatBuff?.ac || 0);
+  const offhand = character.equipment.offhand;
+  const shieldBonus = offhand && offhand.ac ? offhand.ac : 0;
+  const monkBonus = character.cls === 'Monk' && !character.equipment.armor ? MONK_UNARMORED_AC_BONUS : 0;
+  const druidBonus = character.cls === 'Druid' ? DRUID_NATURAL_AC_BONUS : 0;
+  return AC_BASE + armorBonus + shieldBonus + monkBonus + druidBonus
+    + Math.floor(character.stats.speed * AC_PER_SPEED) + (character.combatBuff?.ac || 0);
 }
 
 function initiative(character) { return character.stats.speed; }
 
 // WHAT: build a fresh character record from a class + stat block. Starts
 // equipped with their class's standard kit (CLASS_STARTING_GEAR) rather
-// than genuinely empty-handed.
+// than genuinely empty-handed. The offhand kit entry can name either a
+// SHIELDS id or a second WEAPONS id (dual-wield) — whichever catalog has it.
 function createCharacter({ name, cls, stats }) {
-  const kit = CLASS_STARTING_GEAR[cls];
+  const kit = CLASS_STARTING_GEAR[cls] || {};
+  const offhandItem = kit.offhand
+    ? (SHIELDS.find((s) => s.id === kit.offhand) || WEAPONS.find((w) => w.id === kit.offhand) || null)
+    : null;
   const c = {
     name, cls, level: 1, xp: 0,
     stats: { ...stats },
     equipment: {
-      weapon: kit ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
-      armor: kit ? ARMORS.find((a) => a.id === kit.armor) || null : null,
+      weapon: kit.weapon ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
+      offhand: offhandItem,
+      armor: kit.armor ? ARMORS.find((a) => a.id === kit.armor) || null : null,
     },
     conditions: [],
     knownSpells: [],
@@ -1523,8 +1614,8 @@ function useItem(itemId, ctx) {
 // ask "roll a drop for this tier," main.js just asks "identify index N" /
 // "equip index N onto this character" / "use scroll N on this character."
 
-const { WEAPONS, ARMORS, ITEMS, SCROLLS, gearLootTier, IDENTIFY_COST, FOOD_PACKET_AMOUNT } = __mod['data'];
-const { recomputeDerived, schoolFor } = __mod['party'];
+const { WEAPONS, ARMORS, ITEMS, SCROLLS, gearLootTier, IDENTIFY_COST, ARTIFICER_IDENTIFY_DISCOUNT, FOOD_PACKET_AMOUNT } = __mod['data'];
+const { recomputeDerived, schoolFor, isAlive } = __mod['party'];
 const { findSpell, castSpell } = __mod['spells'];
 
 function poolForTier(maxTier) {
@@ -1569,7 +1660,7 @@ function resolveLoot(party, drop) {
   else party.unclaimedGear.push(drop);
 }
 
-// WHAT: hand a drop to the party. hasAssessor (a living Robber) resolves it
+// WHAT: hand a drop to the party. hasAssessor (a living Rogue) resolves it
 // immediately, for free; otherwise it waits in unidentifiedLoot until paid
 // identification at the General Store. Food never needs identifying.
 function grantLoot(party, drop, hasAssessor) {
@@ -1577,11 +1668,20 @@ function grantLoot(party, drop, hasAssessor) {
   else party.unidentifiedLoot.push(drop);
 }
 
+// WHAT: identify cost is halved for a party with a living Artificer (their
+// tinkerer's eye for gear) — only relevant when no living Rogue is present,
+// since a Rogue already bypasses identification entirely at pickup time.
+function identifyCostFor(party) {
+  const hasArtificer = party.members.some((m) => m.cls === 'Artificer' && isAlive(m));
+  return hasArtificer ? Math.floor(IDENTIFY_COST * ARTIFICER_IDENTIFY_DISCOUNT) : IDENTIFY_COST;
+}
+
 function identifyLoot(party, index) {
   const drop = party.unidentifiedLoot[index];
   if (!drop) return { success: false, message: 'No such item.' };
-  if (party.gold < IDENTIFY_COST) return { success: false, message: `Identifying an item costs ${IDENTIFY_COST} gold.` };
-  party.gold -= IDENTIFY_COST;
+  const cost = identifyCostFor(party);
+  if (party.gold < cost) return { success: false, message: `Identifying an item costs ${cost} gold.` };
+  party.gold -= cost;
   party.unidentifiedLoot.splice(index, 1);
   resolveLoot(party, drop);
   return { success: true, message: `Identified: ${lootName(drop)}.` };
@@ -1594,7 +1694,7 @@ function equipLoot(party, index, character) {
   const item = catalog.find((x) => x.id === drop.id);
   character.equipment[drop.kind] = item;
   party.unclaimedGear.splice(index, 1);
-  if (drop.kind === 'armor') recomputeDerived(character);
+  recomputeDerived(character);
   return { success: true, message: `${character.name} equips ${item.name}.` };
 }
 
@@ -1628,7 +1728,7 @@ function useScroll(scrollId, character, ctx) {
   return { success: true, message: null }; // castSpell already logs its own line
 }
 
-    return { rollLootDrop, lootName, grantLoot, identifyLoot, equipLoot, ownedScrolls, useScroll };
+    return { rollLootDrop, lootName, grantLoot, identifyCostFor, identifyLoot, equipLoot, ownedScrolls, useScroll };
   })();
 
   // ---- src/combat.js ----
@@ -1638,7 +1738,7 @@ function useScroll(scrollId, character, ctx) {
 // WHY: encapsulates initiative, attack/cast/block/run resolution, and
 // victory/defeat so main.js only drives UI and calls into this module.
 
-const { FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS, COMBAT_LOOT_DROP_CHANCE, monsterLootTier } = __mod['data'];
+const { FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS, COMBAT_LOOT_DROP_CHANCE, monsterLootTier, OFFHAND_DUAL_WIELD_DAMAGE_BONUS, MONK_UNARMED_DAMAGE_BONUS, BARBARIAN_RAGE_HP_THRESHOLD, BARBARIAN_RAGE_DAMAGE_BONUS, ROGUE_BACKSTAB_DAMAGE_BONUS, WARLOCK_LIFESTEAL_FRACTION, ROGUE_PICKPOCKET_CHANCE, ROGUE_PICKPOCKET_GOLD_FRACTION } = __mod['data'];
 const { isAlive, isActive, armorClass, recomputeDerived, grantXp } = __mod['party'];
 const { groupIsDefeated } = __mod['monsters'];
 const { castSpell } = __mod['spells'];
@@ -1735,7 +1835,7 @@ function awardVictory(combat, party) {
     const maxTier = Math.max(...combat.groups.map((g) => monsterLootTier(g.xpEach)));
     const drop = rollLootDrop(combat.rng, maxTier);
     if (drop) {
-      const assessor = survivors.find((m) => m.cls === 'Robber');
+      const assessor = survivors.find((m) => m.cls === 'Rogue');
       grantLoot(party, drop, !!assessor);
       combat.log.push(assessor
         ? `${assessor.name}'s practiced eye names the find: ${lootName(drop)}.`
@@ -1784,6 +1884,10 @@ function endRound(combat, party) {
 // WHAT: party member performs Attack — melee vs. front group, ranged/spell
 // ignore rank; back-rank melee is penalized per spec. AFRAID/DISEASED
 // conditions sap accuracy/damage; hitting a sleeping monster wakes it.
+// Class flavor bonuses, all flat and all stacking with normal damage:
+// Barbarian Rage below half HP, Monk fighting bare-handed, Rogue backstab
+// (always on — no stealth/surprise-turn mechanic to gate it), an offhand
+// second weapon (dual-wield), and Warlock lifesteal on a landed hit.
 function performAttack(combat, party, actorIdx, targetGroupIdx) {
   const actor = party.members[actorIdx];
   const group = combat.groups[targetGroupIdx];
@@ -1797,13 +1901,39 @@ function performAttack(combat, party, actorIdx, targetGroupIdx) {
   const weaponDmg = actor.equipment.weapon ? actor.equipment.weapon.dmg : UNARMED_DAMAGE;
   const target = pickAliveMonster(group, combat.rng);
   if (rollHit(acc, target.ac, combat.rng)) {
-    const dmg = Math.max(1, combat.rng.int(weaponDmg[0], weaponDmg[1]) + Math.floor(might / 5));
+    let dmg = Math.max(1, combat.rng.int(weaponDmg[0], weaponDmg[1]) + Math.floor(might / 5));
+    if (!actor.equipment.weapon && actor.cls === 'Monk') dmg += MONK_UNARMED_DAMAGE_BONUS;
+    if (actor.equipment.offhand && actor.equipment.offhand.dmg) dmg += OFFHAND_DUAL_WIELD_DAMAGE_BONUS;
+    if (actor.cls === 'Barbarian' && actor.hp < actor.maxHp * BARBARIAN_RAGE_HP_THRESHOLD) dmg += BARBARIAN_RAGE_DAMAGE_BONUS;
+    if (actor.cls === 'Rogue') dmg += ROGUE_BACKSTAB_DAMAGE_BONUS;
     target.hp -= dmg;
     if (target.condition === 'ASLEEP') target.condition = null;
     combat.log.push(`${actor.name} hits the ${group.name} for ${dmg}.`);
     if (target.hp <= 0) combat.log.push(`A ${group.name} falls!`);
+    if (actor.cls === 'Warlock') {
+      const heal = Math.max(1, Math.round(dmg * WARLOCK_LIFESTEAL_FRACTION));
+      actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+      combat.log.push(`${actor.name}'s pact drains ${heal} HP back.`);
+    }
   } else {
     combat.log.push(`${actor.name} misses the ${group.name}.`);
+  }
+}
+
+// WHAT: Rogue-only "Steal" action — pickpocket the target group for a
+// quick handful of gold instead of attacking; a whiffed attempt still
+// costs the turn, same as a missed attack would.
+function performSteal(combat, party, actorIdx, targetGroupIdx) {
+  const actor = party.members[actorIdx];
+  const group = combat.groups[targetGroupIdx];
+  if (!group || groupIsDefeated(group)) { combat.log.push(`${actor.name} has no target.`); return; }
+  if (combat.rng.chance(ROGUE_PICKPOCKET_CHANCE)) {
+    const [lo, hi] = group.goldRange;
+    const stolen = Math.max(1, Math.round(combat.rng.int(lo, hi) * ROGUE_PICKPOCKET_GOLD_FRACTION));
+    party.gold += stolen;
+    combat.log.push(`${actor.name} lifts ${stolen} gold from the ${group.name}.`);
+  } else {
+    combat.log.push(`${actor.name} finds nothing worth stealing.`);
   }
 }
 
@@ -1873,7 +2003,7 @@ function performMonsterTurn(combat, party, groupIdx) {
   }
 }
 
-    return { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn };
+    return { startCombat, currentActor, advance, performAttack, performSteal, performBlock, performRun, performCast, performMonsterTurn };
   })();
 
   // ---- src/services.js ----
@@ -1883,7 +2013,7 @@ function performMonsterTurn(combat, party, groupIdx) {
 // onto a town shopkeeper tile. WHY: keeps all gold/gem/XP bookkeeping in one
 // place instead of scattered across town.js tile handlers.
 
-const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, ITEMS } = __mod['data'];
+const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, SHIELDS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, ITEMS } = __mod['data'];
 const { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } = __mod['party'];
 
 // ---------------------------------------------------------------------------
@@ -1974,13 +2104,17 @@ function trainCharacter(party, character) {
 // BLACKSMITH
 // ---------------------------------------------------------------------------
 
-function buyWeapon(party, character, weaponId) {
+// WHAT: `slot` defaults to the main hand; passing 'offhand' equips it as a
+// second weapon instead (dual-wield) — the same weapon catalog, just a
+// different equipment slot, so there's no separate dual-wield item list.
+function buyWeapon(party, character, weaponId, slot = 'weapon') {
   const item = WEAPONS.find((w) => w.id === weaponId);
   if (!item) return { success: false, message: 'No such weapon.' };
   if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
   party.gold -= item.cost;
-  character.equipment.weapon = item;
-  return { success: true, message: `${character.name} equips a ${item.name}.` };
+  character.equipment[slot] = item;
+  recomputeDerived(character);
+  return { success: true, message: `${character.name} equips a ${item.name}${slot === 'offhand' ? ' (offhand)' : ''}.` };
 }
 
 function buyArmor(party, character, armorId) {
@@ -1991,6 +2125,20 @@ function buyArmor(party, character, armorId) {
   character.equipment.armor = item;
   recomputeDerived(character);
   return { success: true, message: `${character.name} dons ${item.name}.` };
+}
+
+// WHAT: fills the offhand slot with a shield. A second weapon (dual-wield)
+// goes in that same slot via buyWeapon-into-offhand at the call site in
+// main.js, since it's just "equip this WEAPONS entry into offhand instead
+// of the main hand" — no separate service function needed for that half.
+function buyShield(party, character, shieldId) {
+  const item = SHIELDS.find((s) => s.id === shieldId);
+  if (!item) return { success: false, message: 'No such shield.' };
+  if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
+  party.gold -= item.cost;
+  character.equipment.offhand = item;
+  recomputeDerived(character);
+  return { success: true, message: `${character.name} takes up a ${item.name}.` };
 }
 
 // ---------------------------------------------------------------------------
@@ -2057,7 +2205,7 @@ const RUMORS = [
   'The barkeep leans in: "Secret doors look just like walls. Search close."',
 ];
 
-    return { templeHealCost, templeHeal, templeRestoreSpCost, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, trainingCost, trainCharacter, buyWeapon, buyArmor, learnSpell, buyItem, buyFood, restAtTavern, RUMORS };
+    return { templeHealCost, templeHeal, templeRestoreSpCost, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, trainingCost, trainCharacter, buyWeapon, buyArmor, buyShield, learnSpell, buyItem, buyFood, restAtTavern, RUMORS };
   })();
 
   // ---- src/dungeon.js ----
@@ -2675,7 +2823,7 @@ function encounterChanceForCell(map, x, y) {
 // no module here re-implements movement or rendering — it only calls the
 // one shared gridmap/fpview primitives.
 
-const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE, SPELL_LEVEL_TO_CHAR_LEVEL, IDENTIFY_COST } = __mod['data'];
+const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SHIELDS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROGUE_BONUS, ROGUE_STEALTH_ENCOUNTER_MULTIPLIER, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE, SPELL_LEVEL_TO_CHAR_LEVEL } = __mod['data'];
 const { RNG, hashString } = __mod['rng'];
 const { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } = __mod['gridmap'];
 const { renderFPView } = __mod['fpview'];
@@ -2684,10 +2832,10 @@ const { MessageLog } = __mod['log'];
 const { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, schoolFor, createCharacter, rollAllStats, statShortfalls, createPartyFromRoster } = __mod['party'];
 const { spawnGroup, randomMonsterForTag, groupIsDefeated } = __mod['monsters'];
 const { spellsForSchool, findSpell, castSpell, canCast } = __mod['spells'];
-const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn } = __mod['combat'];
-const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS } = __mod['services'];
+const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn, performSteal } = __mod['combat'];
+const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, buyShield, learnSpell, buyFood, restAtTavern, buyItem, RUMORS } = __mod['services'];
 const { findItem, ownedItems, useItem } = __mod['items'];
-const { identifyLoot, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } = __mod['loot'];
+const { identifyLoot, identifyCostFor, equipLoot, lootName, grantLoot, ownedScrolls, useScroll } = __mod['loot'];
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
@@ -2715,7 +2863,10 @@ const partyReviewPanel = document.getElementById('party-review-panel');
 const partyReviewDynamic = document.getElementById('party-review-dynamic');
 const itemPanel = document.getElementById('item-panel');
 
-const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer', 'Robber'];
+const CHARGEN_CLASS_ORDER = [
+  'Fighter', 'Barbarian', 'Paladin', 'Monk', 'Ranger', 'Rogue',
+  'Artificer', 'Cleric', 'Druid', 'Bard', 'Sorcerer', 'Wizard', 'Warlock',
+];
 
 // WHAT: hide every screen/panel except `keep`. WHY: MENU/CHARGEN/PARTY_REVIEW
 // share the same grid area as combat/shop/cast/overlay — exactly one is ever
@@ -2910,6 +3061,13 @@ function strafe(side) {
   step(dir);
 }
 
+// WHAT: a living Rogue's stealth shaves down every wandering/random
+// encounter roll (dungeon and overworld alike) — it never touches
+// scripted ENCOUNTER specials or ambushes, only the probability rolls.
+function partyStealthMultiplier(party) {
+  return party.members.some((m) => m.cls === 'Rogue' && isAlive(m)) ? ROGUE_STEALTH_ENCOUNTER_MULTIPLIER : 1;
+}
+
 // WHAT: the SOLE place a turn advances — random encounters + on-enter
 // specials fire here, never from rotate().
 function advanceTurn() {
@@ -2920,6 +3078,7 @@ function advanceTurn() {
     dispatchSpecial(cell.special);
     if (s.mode !== 'FIELD') return; // special changed mode (combat/shop/transition)
   }
+  const stealth = partyStealthMultiplier(s.party);
   if (s.map.kind === MAP_KIND.DUNGEON) {
     if (s.restSecuredRoomRect) {
       // Secured-room rest suppresses the normal wandering check entirely
@@ -2929,7 +3088,7 @@ function advanceTurn() {
       if (inRoomRect(s.x, s.y, s.restSecuredRoomRect)) {
         // still inside: no check at all
       } else {
-        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE * stealth)) startEncounterFlow();
         s.restSecuredRoomRect = null;
       }
     } else {
@@ -2939,7 +3098,7 @@ function advanceTurn() {
       s.dungeonTurnCounter += 1;
       if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
         s.dungeonTurnCounter = 0;
-        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+        if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE * stealth)) startEncounterFlow();
       }
     }
   } else if (s.map.kind === MAP_KIND.OVERWORLD) {
@@ -2947,7 +3106,7 @@ function advanceTurn() {
       // A brief no-roll grace period after resting at an oasis.
       s.oasisGraceSteps -= 1;
     } else {
-      const rate = encounterChanceForCell(s.map, s.x, s.y);
+      const rate = encounterChanceForCell(s.map, s.x, s.y) * stealth;
       if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
     }
   }
@@ -3217,15 +3376,15 @@ function interact() {
 }
 
 // WHAT: attempt to find a secret door in the wall directly ahead.
-// WHY: secret doors "look like walls" until searched out — Robbers are
+// WHY: secret doors "look like walls" until searched out — Rogues are
 // better at sensing them, per spec.
 function searchForSecret() {
   const s = Game.state;
   if (s.map.getEdge(s.x, s.y, s.facing) !== EDGE.SECRET) { s.log.push('You find nothing unusual.'); return; }
   const cell = s.map.cellAt(s.x, s.y);
   if (cell.secretFound[s.facing]) { s.log.push('You already found the hidden door here.'); return; }
-  const hasRobber = s.party.members.some((m) => m.cls === 'Robber' && isAlive(m));
-  const chance = SECRET_SEARCH_BASE_CHANCE + (hasRobber ? SECRET_SEARCH_ROBBER_BONUS : 0);
+  const hasRogue = s.party.members.some((m) => m.cls === 'Rogue' && isAlive(m));
+  const chance = SECRET_SEARCH_BASE_CHANCE + (hasRogue ? SECRET_SEARCH_ROGUE_BONUS : 0);
   if (s.rng.chance(chance)) {
     cell.secretFound[s.facing] = true;
     const { dx, dy } = DELTA[s.facing];
@@ -3254,7 +3413,7 @@ function openChest(special) {
   p.opened = true;
   s.log.push(`You find ${p.gold} gold${p.gems ? ` and ${p.gems} gem(s)` : ''} in the chest.`);
   if (p.loot) {
-    const assessor = s.party.members.find((m) => m.cls === 'Robber' && isAlive(m));
+    const assessor = s.party.members.find((m) => m.cls === 'Rogue' && isAlive(m));
     grantLoot(s.party, p.loot, !!assessor);
     s.log.push(assessor
       ? `${assessor.name}'s practiced eye names the find: ${lootName(p.loot)}.`
@@ -3381,6 +3540,10 @@ function handleCombatKey(key) {
       performRun(combat, s.party);
       finalizeCombatIfEnded();
       if (s.mode === 'COMBAT') endActorTurn();
+    } else if (key === '5') {
+      const actor = s.party.members[ui.actorIdx];
+      if (actor.cls !== 'Rogue') return; // dead-option guard: button is disabled for non-Rogues
+      ui.phase = 'TARGET_GROUP'; ui.pendingAction = 'steal';
     }
     return;
   }
@@ -3397,7 +3560,8 @@ function handleCombatKey(key) {
   if (ui.phase === 'TARGET_GROUP') {
     const idx = parseInt(key, 10) - 1;
     if (idx >= 0 && idx < combat.groups.length && !groupIsDefeated(combat.groups[idx])) {
-      performAttack(combat, s.party, ui.actorIdx, idx);
+      if (ui.pendingAction === 'steal') performSteal(combat, s.party, ui.actorIdx, idx);
+      else performAttack(combat, s.party, ui.actorIdx, idx);
       endActorTurn();
     }
     return;
@@ -3477,9 +3641,13 @@ function handleShopKey(key) {
     if (key === '3') { for (const msg of templeFullService(s.party)) s.log.push(msg); }
   } else if (shop.type === 'BLACKSMITH') {
     const n = parseInt(key, 10);
-    const gearOffset = WEAPONS.length + ARMORS.length;
+    const shieldOffset = WEAPONS.length + ARMORS.length;
+    const offhandOffset = shieldOffset + SHIELDS.length;
+    const gearOffset = offhandOffset + WEAPONS.length;
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
-    else if (n > WEAPONS.length && n <= gearOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > WEAPONS.length && n <= shieldOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > shieldOffset && n <= offhandOffset) say(buyShield(s.party, c, SHIELDS[n - shieldOffset - 1].id));
+    else if (n > offhandOffset && n <= gearOffset) say(buyWeapon(s.party, c, WEAPONS[n - offhandOffset - 1].id, 'offhand'));
     else if (n > gearOffset && n <= gearOffset + s.party.unclaimedGear.length) say(equipLoot(s.party, n - gearOffset - 1, c));
   } else if (shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
@@ -3547,9 +3715,9 @@ function handleChargenKey(key) {
     return;
   }
   if (key === 'random-name') { chargenNameInput.value = s.chargenRng.choice(RANDOM_NAMES); return; }
-  if (/^[1-6]$/.test(key)) {
-    const cls = CHARGEN_CLASS_ORDER[parseInt(key, 10) - 1];
-    if (!statShortfalls(cls, cg.draft.stats).length) cg.draft.cls = cls;
+  if (key.startsWith('cls-')) {
+    const cls = key.slice(4);
+    if (CHARGEN_CLASS_ORDER.includes(cls) && !statShortfalls(cls, cg.draft.stats).length) cg.draft.cls = cls;
     return;
   }
   if (key === 'add-to-roster') { addDraftToRoster(); return; }
@@ -3765,10 +3933,11 @@ function renderRoster() {
     const cond = c.conditions.filter((x) => x !== 'DEAD').join(',');
     const weaponName = c.equipment.weapon ? c.equipment.weapon.name : 'unarmed';
     const armorName = c.equipment.armor ? c.equipment.armor.name : 'unarmored';
+    const offhandName = c.equipment.offhand ? ` + ${c.equipment.offhand.name}` : '';
     return `<div class="hero${dead ? ' dead' : ''}${s.mode === 'COMBAT' && s.combatUI.actorIdx === i ? ' active' : ''}">
       <b>${i + 1}. ${c.name}</b> Lv${c.level} ${c.cls}<br/>
       HP ${c.hp}/${c.maxHp}  SP ${c.sp}/${c.maxSp}  AC ${c.ac}${cond ? `<br/><i>${cond}</i>` : ''}<br/>
-      <span class="equip">${weaponName} / ${armorName}</span>
+      <span class="equip">${weaponName}${offhandName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
     `<div class="resources">${itemsSummary(s.party)}</div>` +
@@ -3884,8 +4053,9 @@ function renderCombat() {
     let castReason = null;
     if (!castable.length) castReason = 'no spells known';
     else if (!castable.some((sp) => canCast(actor, sp))) castReason = 'not enough SP';
+    const stealReason = actor.cls === 'Rogue' ? null : 'Rogue only';
     html = `<b>${actor.name}'s turn</b><br/>` +
-      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run']]);
+      choiceButtons([['1', 'Attack'], ['2', 'Cast', castReason], ['3', 'Block'], ['4', 'Run'], ['5', 'Steal', stealReason]]);
   } else if (ui.phase === 'TARGET_GROUP' || ui.phase === 'SPELL_TARGET_GROUP') {
     html = 'Target group:<br/>' + choiceButtons(combat.groups.map((g, i) => [String(i + 1), g.name])) +
       '<br/>' + choiceButtons([['Escape', 'Cancel']]);
@@ -3911,10 +4081,14 @@ function renderShop() {
       ['3', 'Full party heal/cure'],
     ]);
   } else if (s.shop.type === 'BLACKSMITH') {
-    html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
-      choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
+    const shieldOffset = WEAPONS.length + ARMORS.length;
+    const offhandOffset = shieldOffset + SHIELDS.length;
+    const gearOffset = offhandOffset + WEAPONS.length;
+    html += `Weapons (main hand):<br/>` + choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
+      `Armor:<br/>` + choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`])) + '<br/>' +
+      `Shields:<br/>` + choiceButtons(SHIELDS.map((sh, i) => [String(i + 1 + shieldOffset), `${sh.name} ${sh.cost}g`])) + '<br/>' +
+      `Offhand weapon (dual-wield):<br/>` + choiceButtons(WEAPONS.map((w, i) => [String(i + 1 + offhandOffset), `${w.name} ${w.cost}g`]));
     if (s.party.unclaimedGear.length) {
-      const gearOffset = WEAPONS.length + ARMORS.length;
       html += `<br/>Identified loot, free to equip on ${c.name}:<br/>` +
         choiceButtons(s.party.unclaimedGear.map((drop, i) => [String(i + 1 + gearOffset), `${lootName(drop)} (free)`]));
     }
@@ -3940,10 +4114,11 @@ function renderShop() {
       return [String(i + 1), label];
     }));
     if (s.party.unidentifiedLoot.length) {
+      const identifyCost = identifyCostFor(s.party);
       html += `<br/>Unidentified finds:<br/>` +
         choiceButtons(s.party.unidentifiedLoot.map((drop, i) => {
-          const label = `Unknown item (identify: ${IDENTIFY_COST}g)`;
-          if (s.party.gold < IDENTIFY_COST) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
+          const label = `Unknown item (identify: ${identifyCost}g)`;
+          if (s.party.gold < identifyCost) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
           return [String(i + 1 + s.shop.stock.length), label];
         }));
     }
@@ -4059,12 +4234,12 @@ function renderChargen() {
   const statsHtml = STATS.map((stat) => `${stat[0].toUpperCase()}${stat.slice(1)} <b>${cg.draft.stats[stat]}</b>`).join(' &nbsp; ');
   const total = STATS.reduce((sum, stat) => sum + cg.draft.stats[stat], 0);
 
-  const classButtons = CHARGEN_CLASS_ORDER.map((cls, i) => {
+  const classButtons = CHARGEN_CLASS_ORDER.map((cls) => {
     const info = CLASSES[cls];
     const short = statShortfalls(cls, cg.draft.stats);
     const schoolText = info.spellSchool ? ` — ${info.spellSchool} spells${info.spellSchoolLevel > 1 ? ` at Lv${info.spellSchoolLevel}` : ''}` : '';
     const label = `${cls} (${info.combatRole}, d${info.hitDie} HP${schoolText})${cg.draft.cls === cls ? ' [chosen]' : ''}`;
-    return short.length ? [String(i + 1), label, `needs ${short.join(', ')}`] : [String(i + 1), label, null];
+    return short.length ? [`cls-${cls}`, label, `needs ${short.join(', ')}`] : [`cls-${cls}`, label, null];
   });
 
   let previewHtml = '';

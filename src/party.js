@@ -8,7 +8,8 @@ import {
   SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL,
   STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS,
   STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP,
-  CLASS_STARTING_GEAR, WEAPONS, ARMORS,
+  CLASS_STARTING_GEAR, WEAPONS, ARMORS, SHIELDS,
+  MONK_UNARMORED_AC_BONUS, DRUID_NATURAL_AC_BONUS,
 } from './data.js';
 
 // WHAT: max HP for a character at their current level.
@@ -19,8 +20,9 @@ export function maxHp(character) {
 
 // WHAT: the spell school this character currently has access to, or null.
 // WHY: single source of truth for "can this character cast/learn spells" —
-// Paladin/Archer are hybrids who only unlock their school at a delayed
-// class-defined level (CLASSES[cls].spellSchoolLevel); Knight/Robber never do.
+// Paladin/Ranger/Artificer are hybrids who only unlock their school at a
+// delayed class-defined level (CLASSES[cls].spellSchoolLevel); Fighter/
+// Barbarian/Monk/Rogue never do.
 export function schoolFor(character) {
   const cls = CLASSES[character.cls];
   if (!cls.spellSchool) return null;
@@ -28,43 +30,59 @@ export function schoolFor(character) {
   return cls.spellSchool;
 }
 
-// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric).
-// Zero until the character actually has school access (see schoolFor).
+// WHAT: max SP; casters draw from Intellect (sorcerer) or Personality (cleric),
+// plus a flat bonus from an equipped wand/staff (weapon.spBonus). Zero
+// until the character actually has school access (see schoolFor) — a
+// caster weapon doesn't grant SP on its own without training to channel it.
 export function maxSp(character) {
   const school = schoolFor(character);
   if (!school) return 0;
   const stat = school === 'sorcerer' ? character.stats.intellect : character.stats.personality;
-  return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL;
+  const weaponBonus = character.equipment.weapon?.spBonus || 0;
+  return stat * SP_PER_STAT + (character.level - 1) * SP_PER_LEVEL + weaponBonus;
 }
 
 // WHAT: grant every level-1 spell of `school` the character doesn't already
 // know. WHY: shared by character creation (starting spells) and level-up
-// (a Paladin/Archer crossing their spellSchoolLevel threshold).
+// (a Paladin/Ranger/Artificer crossing their spellSchoolLevel threshold).
 function grantLevelOneSpells(character, school) {
   for (const spell of SPELLS[school]) {
     if (spell.spellLevel === 1 && !character.knownSpells.includes(spell.id)) character.knownSpells.push(spell.id);
   }
 }
 
-// WHAT: armor class from equipped armor + Speed-derived dodge.
+// WHAT: armor class from equipped armor + offhand (a shield adds its own
+// AC; a second weapon there adds none) + Speed-derived dodge + class
+// passives: a Monk fighting with no armor at all gets a bonus from martial
+// training, and a Druid always gets a small "natural hide" bonus.
 export function armorClass(character) {
   const armorBonus = character.equipment.armor ? character.equipment.armor.ac : 0;
-  return AC_BASE + armorBonus + Math.floor(character.stats.speed * AC_PER_SPEED) + (character.combatBuff?.ac || 0);
+  const offhand = character.equipment.offhand;
+  const shieldBonus = offhand && offhand.ac ? offhand.ac : 0;
+  const monkBonus = character.cls === 'Monk' && !character.equipment.armor ? MONK_UNARMORED_AC_BONUS : 0;
+  const druidBonus = character.cls === 'Druid' ? DRUID_NATURAL_AC_BONUS : 0;
+  return AC_BASE + armorBonus + shieldBonus + monkBonus + druidBonus
+    + Math.floor(character.stats.speed * AC_PER_SPEED) + (character.combatBuff?.ac || 0);
 }
 
 export function initiative(character) { return character.stats.speed; }
 
 // WHAT: build a fresh character record from a class + stat block. Starts
 // equipped with their class's standard kit (CLASS_STARTING_GEAR) rather
-// than genuinely empty-handed.
+// than genuinely empty-handed. The offhand kit entry can name either a
+// SHIELDS id or a second WEAPONS id (dual-wield) — whichever catalog has it.
 export function createCharacter({ name, cls, stats }) {
-  const kit = CLASS_STARTING_GEAR[cls];
+  const kit = CLASS_STARTING_GEAR[cls] || {};
+  const offhandItem = kit.offhand
+    ? (SHIELDS.find((s) => s.id === kit.offhand) || WEAPONS.find((w) => w.id === kit.offhand) || null)
+    : null;
   const c = {
     name, cls, level: 1, xp: 0,
     stats: { ...stats },
     equipment: {
-      weapon: kit ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
-      armor: kit ? ARMORS.find((a) => a.id === kit.armor) || null : null,
+      weapon: kit.weapon ? WEAPONS.find((w) => w.id === kit.weapon) || null : null,
+      offhand: offhandItem,
+      armor: kit.armor ? ARMORS.find((a) => a.id === kit.armor) || null : null,
     },
     conditions: [],
     knownSpells: [],

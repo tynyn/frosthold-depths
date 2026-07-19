@@ -10,8 +10,8 @@
 // ask "roll a drop for this tier," main.js just asks "identify index N" /
 // "equip index N onto this character" / "use scroll N on this character."
 
-import { WEAPONS, ARMORS, ITEMS, SCROLLS, gearLootTier, IDENTIFY_COST, FOOD_PACKET_AMOUNT } from './data.js';
-import { recomputeDerived, schoolFor } from './party.js';
+import { WEAPONS, ARMORS, ITEMS, SCROLLS, gearLootTier, IDENTIFY_COST, ARTIFICER_IDENTIFY_DISCOUNT, FOOD_PACKET_AMOUNT } from './data.js';
+import { recomputeDerived, schoolFor, isAlive } from './party.js';
 import { findSpell, castSpell } from './spells.js';
 
 function poolForTier(maxTier) {
@@ -56,7 +56,7 @@ function resolveLoot(party, drop) {
   else party.unclaimedGear.push(drop);
 }
 
-// WHAT: hand a drop to the party. hasAssessor (a living Robber) resolves it
+// WHAT: hand a drop to the party. hasAssessor (a living Rogue) resolves it
 // immediately, for free; otherwise it waits in unidentifiedLoot until paid
 // identification at the General Store. Food never needs identifying.
 export function grantLoot(party, drop, hasAssessor) {
@@ -64,11 +64,20 @@ export function grantLoot(party, drop, hasAssessor) {
   else party.unidentifiedLoot.push(drop);
 }
 
+// WHAT: identify cost is halved for a party with a living Artificer (their
+// tinkerer's eye for gear) — only relevant when no living Rogue is present,
+// since a Rogue already bypasses identification entirely at pickup time.
+export function identifyCostFor(party) {
+  const hasArtificer = party.members.some((m) => m.cls === 'Artificer' && isAlive(m));
+  return hasArtificer ? Math.floor(IDENTIFY_COST * ARTIFICER_IDENTIFY_DISCOUNT) : IDENTIFY_COST;
+}
+
 export function identifyLoot(party, index) {
   const drop = party.unidentifiedLoot[index];
   if (!drop) return { success: false, message: 'No such item.' };
-  if (party.gold < IDENTIFY_COST) return { success: false, message: `Identifying an item costs ${IDENTIFY_COST} gold.` };
-  party.gold -= IDENTIFY_COST;
+  const cost = identifyCostFor(party);
+  if (party.gold < cost) return { success: false, message: `Identifying an item costs ${cost} gold.` };
+  party.gold -= cost;
   party.unidentifiedLoot.splice(index, 1);
   resolveLoot(party, drop);
   return { success: true, message: `Identified: ${lootName(drop)}.` };
@@ -81,7 +90,7 @@ export function equipLoot(party, index, character) {
   const item = catalog.find((x) => x.id === drop.id);
   character.equipment[drop.kind] = item;
   party.unclaimedGear.splice(index, 1);
-  if (drop.kind === 'armor') recomputeDerived(character);
+  recomputeDerived(character);
   return { success: true, message: `${character.name} equips ${item.name}.` };
 }
 

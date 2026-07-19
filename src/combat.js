@@ -7,6 +7,9 @@ import {
   FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR,
   BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS,
   COMBAT_LOOT_DROP_CHANCE, monsterLootTier,
+  OFFHAND_DUAL_WIELD_DAMAGE_BONUS, MONK_UNARMED_DAMAGE_BONUS, BARBARIAN_RAGE_HP_THRESHOLD,
+  BARBARIAN_RAGE_DAMAGE_BONUS, ROGUE_BACKSTAB_DAMAGE_BONUS, WARLOCK_LIFESTEAL_FRACTION,
+  ROGUE_PICKPOCKET_CHANCE, ROGUE_PICKPOCKET_GOLD_FRACTION,
 } from './data.js';
 import { isAlive, isActive, armorClass, recomputeDerived, grantXp } from './party.js';
 import { groupIsDefeated } from './monsters.js';
@@ -104,7 +107,7 @@ function awardVictory(combat, party) {
     const maxTier = Math.max(...combat.groups.map((g) => monsterLootTier(g.xpEach)));
     const drop = rollLootDrop(combat.rng, maxTier);
     if (drop) {
-      const assessor = survivors.find((m) => m.cls === 'Robber');
+      const assessor = survivors.find((m) => m.cls === 'Rogue');
       grantLoot(party, drop, !!assessor);
       combat.log.push(assessor
         ? `${assessor.name}'s practiced eye names the find: ${lootName(drop)}.`
@@ -153,6 +156,10 @@ function endRound(combat, party) {
 // WHAT: party member performs Attack — melee vs. front group, ranged/spell
 // ignore rank; back-rank melee is penalized per spec. AFRAID/DISEASED
 // conditions sap accuracy/damage; hitting a sleeping monster wakes it.
+// Class flavor bonuses, all flat and all stacking with normal damage:
+// Barbarian Rage below half HP, Monk fighting bare-handed, Rogue backstab
+// (always on — no stealth/surprise-turn mechanic to gate it), an offhand
+// second weapon (dual-wield), and Warlock lifesteal on a landed hit.
 export function performAttack(combat, party, actorIdx, targetGroupIdx) {
   const actor = party.members[actorIdx];
   const group = combat.groups[targetGroupIdx];
@@ -166,13 +173,39 @@ export function performAttack(combat, party, actorIdx, targetGroupIdx) {
   const weaponDmg = actor.equipment.weapon ? actor.equipment.weapon.dmg : UNARMED_DAMAGE;
   const target = pickAliveMonster(group, combat.rng);
   if (rollHit(acc, target.ac, combat.rng)) {
-    const dmg = Math.max(1, combat.rng.int(weaponDmg[0], weaponDmg[1]) + Math.floor(might / 5));
+    let dmg = Math.max(1, combat.rng.int(weaponDmg[0], weaponDmg[1]) + Math.floor(might / 5));
+    if (!actor.equipment.weapon && actor.cls === 'Monk') dmg += MONK_UNARMED_DAMAGE_BONUS;
+    if (actor.equipment.offhand && actor.equipment.offhand.dmg) dmg += OFFHAND_DUAL_WIELD_DAMAGE_BONUS;
+    if (actor.cls === 'Barbarian' && actor.hp < actor.maxHp * BARBARIAN_RAGE_HP_THRESHOLD) dmg += BARBARIAN_RAGE_DAMAGE_BONUS;
+    if (actor.cls === 'Rogue') dmg += ROGUE_BACKSTAB_DAMAGE_BONUS;
     target.hp -= dmg;
     if (target.condition === 'ASLEEP') target.condition = null;
     combat.log.push(`${actor.name} hits the ${group.name} for ${dmg}.`);
     if (target.hp <= 0) combat.log.push(`A ${group.name} falls!`);
+    if (actor.cls === 'Warlock') {
+      const heal = Math.max(1, Math.round(dmg * WARLOCK_LIFESTEAL_FRACTION));
+      actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+      combat.log.push(`${actor.name}'s pact drains ${heal} HP back.`);
+    }
   } else {
     combat.log.push(`${actor.name} misses the ${group.name}.`);
+  }
+}
+
+// WHAT: Rogue-only "Steal" action — pickpocket the target group for a
+// quick handful of gold instead of attacking; a whiffed attempt still
+// costs the turn, same as a missed attack would.
+export function performSteal(combat, party, actorIdx, targetGroupIdx) {
+  const actor = party.members[actorIdx];
+  const group = combat.groups[targetGroupIdx];
+  if (!group || groupIsDefeated(group)) { combat.log.push(`${actor.name} has no target.`); return; }
+  if (combat.rng.chance(ROGUE_PICKPOCKET_CHANCE)) {
+    const [lo, hi] = group.goldRange;
+    const stolen = Math.max(1, Math.round(combat.rng.int(lo, hi) * ROGUE_PICKPOCKET_GOLD_FRACTION));
+    party.gold += stolen;
+    combat.log.push(`${actor.name} lifts ${stolen} gold from the ${group.name}.`);
+  } else {
+    combat.log.push(`${actor.name} finds nothing worth stealing.`);
   }
 }
 

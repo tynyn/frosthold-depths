@@ -50,41 +50,76 @@ export const STATS = ['might', 'intellect', 'personality', 'endurance', 'speed',
 
 // WHAT: spellSchoolLevel is the character LEVEL at which a class gains
 // access to its spellSchool (and starts casting/learning at all). Pure
-// casters get it from level 1; hybrids (Paladin, Archer) get it delayed;
-// Knight/Robber never gain a school (spellSchool: null).
-// statMinimums: rolled-stat floors (4d6-drop-lowest, range 3-18) character
-// creation checks before letting a class be chosen; a class with no entry
-// for a stat has no floor on it.
+// casters get it from level 1; hybrids (Paladin, Ranger, Artificer) get it
+// delayed; Fighter/Barbarian/Monk/Rogue never gain a school (spellSchool:
+// null). statMinimums: rolled-stat floors (4d6-drop-lowest, range 3-18)
+// character creation checks before letting a class be chosen; a class with
+// no entry for a stat has no floor on it.
 export const CLASSES = {
-  Knight: {
-    name: 'Knight', hitDie: 10, spellSchool: null, combatRole: 'melee',
+  Fighter: {
+    name: 'Fighter', hitDie: 10, spellSchool: null, combatRole: 'melee',
     statMods: { might: 3, endurance: 2, accuracy: 1, intellect: -2, personality: -2 },
     statMinimums: { might: 9 },
+  },
+  Barbarian: {
+    name: 'Barbarian', hitDie: 12, spellSchool: null, combatRole: 'melee',
+    statMods: { might: 4, endurance: 3, intellect: -3, personality: -2 },
+    statMinimums: { might: 10 },
   },
   Paladin: {
     name: 'Paladin', hitDie: 9, spellSchool: 'cleric', spellSchoolLevel: 3, combatRole: 'melee',
     statMods: { might: 2, endurance: 1, personality: 1 },
     statMinimums: { might: 8, personality: 8 },
   },
-  Archer: {
-    name: 'Archer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
+  Monk: {
+    name: 'Monk', hitDie: 8, spellSchool: null, combatRole: 'melee',
+    statMods: { speed: 3, accuracy: 2, might: 1, personality: -2 },
+    statMinimums: { speed: 9 },
+  },
+  Ranger: {
+    name: 'Ranger', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
     statMods: { accuracy: 3, speed: 2, might: -1 },
     statMinimums: { accuracy: 9 },
+  },
+  Rogue: {
+    name: 'Rogue', hitDie: 8, spellSchool: null, combatRole: 'skill',
+    statMods: { luck: 3, speed: 2, accuracy: 1, personality: -2 },
+    statMinimums: { luck: 9 },
+  },
+  Artificer: {
+    name: 'Artificer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 3, combatRole: 'skill',
+    statMods: { intellect: 2, luck: 1, accuracy: 1, might: -1 },
+    statMinimums: { intellect: 8 },
   },
   Cleric: {
     name: 'Cleric', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
     statMods: { personality: 3, endurance: 1, might: -2 },
     statMinimums: { personality: 9 },
   },
+  Druid: {
+    name: 'Druid', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
+    statMods: { personality: 2, endurance: 2, might: -1, intellect: -1 },
+    statMinimums: { personality: 8, endurance: 8 },
+  },
+  Bard: {
+    name: 'Bard', hitDie: 6, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
+    statMods: { personality: 2, luck: 2, intellect: 1, might: -2, endurance: -2 },
+    statMinimums: { personality: 8 },
+  },
   Sorcerer: {
     name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
     statMods: { intellect: 3, luck: 1, endurance: -2, might: -2 },
     statMinimums: { intellect: 9 },
   },
-  Robber: {
-    name: 'Robber', hitDie: 8, spellSchool: null, combatRole: 'skill',
-    statMods: { luck: 3, speed: 2, accuracy: 1, personality: -2 },
-    statMinimums: { luck: 9 },
+  Wizard: {
+    name: 'Wizard', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
+    statMods: { intellect: 4, luck: -1, endurance: -2, might: -3 },
+    statMinimums: { intellect: 10 },
+  },
+  Warlock: {
+    name: 'Warlock', hitDie: 7, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
+    statMods: { personality: 2, intellect: 1, luck: 2, endurance: -2, might: -2 },
+    statMinimums: { personality: 8 },
   },
 };
 
@@ -123,12 +158,12 @@ export const RANDOM_NAMES = [
 ];
 
 export const DEFAULT_PARTY = [
-  { name: 'Harkon', cls: 'Knight', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
+  { name: 'Harkon', cls: 'Fighter', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
   { name: 'Seris', cls: 'Paladin', stats: { might: 13, intellect: 8, personality: 11, endurance: 12, speed: 10, accuracy: 10, luck: 9 } },
-  { name: 'Wend', cls: 'Archer', stats: { might: 9, intellect: 9, personality: 8, endurance: 10, speed: 14, accuracy: 14, luck: 10 } },
+  { name: 'Wend', cls: 'Ranger', stats: { might: 9, intellect: 9, personality: 8, endurance: 10, speed: 14, accuracy: 14, luck: 10 } },
   { name: 'Alma', cls: 'Cleric', stats: { might: 7, intellect: 9, personality: 15, endurance: 11, speed: 9, accuracy: 9, luck: 10 } },
   { name: 'Ondrei', cls: 'Sorcerer', stats: { might: 6, intellect: 15, personality: 8, endurance: 8, speed: 10, accuracy: 9, luck: 11 } },
-  { name: 'Piper', cls: 'Robber', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
+  { name: 'Piper', cls: 'Rogue', stats: { might: 9, intellect: 9, personality: 6, endurance: 10, speed: 14, accuracy: 12, luck: 14 } },
 ];
 
 export const CONDITIONS = {
@@ -225,12 +260,19 @@ export const BOSS = {
 // ITEMS / SHOPS
 // ---------------------------------------------------------------------------
 
+// WHAT: spBonus on a weapon feeds maxSp() (party.js) — the classic
+// caster's-focus-item trope (a wand/staff channels magic) without a
+// separate weapon category or spellcasting-accuracy mechanic (spells don't
+// roll to hit in this engine, so there's nothing else for a "caster
+// weapon" to boost).
 export const WEAPONS = [
   { id: 'dagger', name: 'Dagger', cost: 15, dmg: [1, 4] },
   { id: 'handaxe', name: 'Hand Axe', cost: 20, dmg: [1, 6] },
   { id: 'shortsword', name: 'Short Sword', cost: 40, dmg: [2, 5] },
   { id: 'mace', name: 'Mace', cost: 35, dmg: [2, 6] },
+  { id: 'wand', name: 'Wand', cost: 50, dmg: [1, 3], spBonus: 3 },
   { id: 'longsword', name: 'Long Sword', cost: 90, dmg: [3, 8] },
+  { id: 'staff', name: 'Staff', cost: 90, dmg: [2, 5], spBonus: 5 },
   { id: 'battleaxe', name: 'Battle Axe', cost: 100, dmg: [3, 9] },
   { id: 'warhammer', name: 'War Hammer', cost: 150, dmg: [4, 10] },
   { id: 'shortbow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
@@ -245,6 +287,28 @@ export const ARMORS = [
   { id: 'banded', name: 'Banded Mail', cost: 150, ac: 8 },
   { id: 'plate', name: 'Plate Armor', cost: 220, ac: 10 },
 ];
+
+// WHAT: the offhand slot — a shield (AC bonus) or, instead, a second
+// weapon for dual-wielding (see OFFHAND_DUAL_WIELD_DAMAGE_BONUS in
+// combat.js) — never both; it's one slot, the player's choice.
+export const SHIELDS = [
+  { id: 'buckler', name: 'Buckler', cost: 25, ac: 1 },
+  { id: 'kite_shield', name: 'Kite Shield', cost: 60, ac: 2 },
+  { id: 'tower_shield', name: 'Tower Shield', cost: 120, ac: 4 },
+];
+
+export const OFFHAND_DUAL_WIELD_DAMAGE_BONUS = 2; // flat, added when the offhand holds a second weapon instead of a shield
+
+export const MONK_UNARMED_DAMAGE_BONUS = 3; // flat, only when no weapon is equipped
+export const MONK_UNARMORED_AC_BONUS = 2; // flat, only when no armor is equipped ("martial training")
+export const DRUID_NATURAL_AC_BONUS = 1; // flat, always ("thick hide/bark-skin")
+export const BARBARIAN_RAGE_HP_THRESHOLD = 0.5; // fraction of maxHp
+export const BARBARIAN_RAGE_DAMAGE_BONUS = 3; // flat, only below the threshold
+export const ROGUE_BACKSTAB_DAMAGE_BONUS = 3; // flat, every Rogue attack
+export const WARLOCK_LIFESTEAL_FRACTION = 0.25; // fraction of damage dealt, healed to self on a hit
+export const ROGUE_STEALTH_ENCOUNTER_MULTIPLIER = 0.7; // applied to encounter chance while a living Rogue is in the party
+export const ROGUE_PICKPOCKET_CHANCE = 0.6;
+export const ROGUE_PICKPOCKET_GOLD_FRACTION = 0.3; // fraction of the target group's remaining gold value
 
 export const TEMPLE_COSTS = {
   healPerHp: 2,
@@ -309,9 +373,11 @@ export const COMBAT_LOOT_DROP_CHANCE = 0.2; // beyond gold, per victory
 export const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
 
 // WHAT: gold cost to have one unidentified loot item appraised at the
-// General Store. A living Robber assesses loot for free the moment it's
-// picked up instead — no store trip needed.
+// General Store. A living Rogue assesses loot for free the moment it's
+// picked up instead — no store trip needed; a living Artificer (no Rogue
+// present) still pays, but at ARTIFICER_IDENTIFY_DISCOUNT off.
 export const IDENTIFY_COST = 1;
+export const ARTIFICER_IDENTIFY_DISCOUNT = 0.5;
 
 // WHAT: spell scrolls — each references an existing SPELLS entry by id.
 // `learnable: true` means using it teaches the spell permanently instead of
@@ -345,17 +411,25 @@ export const SCROLLS = {
 // counter the Tavern already spends.
 export const FOOD_PACKET_AMOUNT = 3;
 
-// WHAT: sensible starting weapon+armor per class — every character used to
-// begin with equipment: {weapon:null, armor:null}, i.e. genuinely unarmed
-// and unarmored until a Blacksmith visit. That was never a design choice,
-// just a gap; this is what a fresh character is handed at creation.
+// WHAT: sensible starting weapon+armor(+offhand) per class — every
+// character used to begin with equipment: {weapon:null, armor:null}, i.e.
+// genuinely unarmed and unarmored until a Blacksmith visit. That was never
+// a design choice, just a gap; this is what a fresh character is handed at
+// creation. Monk deliberately gets no weapon — see MONK_UNARMED_DAMAGE_BONUS.
 export const CLASS_STARTING_GEAR = {
-  Knight: { weapon: 'longsword', armor: 'leather' },
-  Paladin: { weapon: 'longsword', armor: 'leather' },
-  Archer: { weapon: 'shortbow', armor: 'leather' },
+  Fighter: { weapon: 'longsword', armor: 'leather', offhand: 'buckler' },
+  Barbarian: { weapon: 'battleaxe', armor: 'studded' },
+  Paladin: { weapon: 'longsword', armor: 'leather', offhand: 'buckler' },
+  Monk: { armor: 'robe' },
+  Ranger: { weapon: 'shortbow', armor: 'leather' },
+  Rogue: { weapon: 'shortsword', armor: 'leather' },
+  Artificer: { weapon: 'wand', armor: 'leather' },
   Cleric: { weapon: 'mace', armor: 'robe' },
+  Druid: { weapon: 'mace', armor: 'leather' },
+  Bard: { weapon: 'shortsword', armor: 'robe' },
   Sorcerer: { weapon: 'dagger', armor: 'robe' },
-  Robber: { weapon: 'shortsword', armor: 'leather' },
+  Wizard: { weapon: 'staff', armor: 'robe' },
+  Warlock: { weapon: 'dagger', armor: 'robe' },
 };
 
 // ---------------------------------------------------------------------------
@@ -406,7 +480,7 @@ export const DUNGEON_CHEST_GOLD = [10, 60];
 export const DUNGEON_CHEST_GEM_CHANCE = 0.3;
 export const DUNGEON_DARKNESS_VIEW_DEPTH = 1;
 export const SECRET_SEARCH_BASE_CHANCE = 0.5;
-export const SECRET_SEARCH_ROBBER_BONUS = 0.3;
+export const SECRET_SEARCH_ROGUE_BONUS = 0.3;
 
 // ---------------------------------------------------------------------------
 // PROCGEN — OVERWORLD

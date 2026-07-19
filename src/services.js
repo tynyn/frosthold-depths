@@ -4,7 +4,7 @@
 // place instead of scattered across town.js tile handlers.
 
 import {
-  TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL,
+  TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, SHIELDS, TRAINING_GOLD_PER_LEVEL,
   MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, ITEMS,
 } from './data.js';
 import { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } from './party.js';
@@ -97,13 +97,17 @@ export function trainCharacter(party, character) {
 // BLACKSMITH
 // ---------------------------------------------------------------------------
 
-export function buyWeapon(party, character, weaponId) {
+// WHAT: `slot` defaults to the main hand; passing 'offhand' equips it as a
+// second weapon instead (dual-wield) — the same weapon catalog, just a
+// different equipment slot, so there's no separate dual-wield item list.
+export function buyWeapon(party, character, weaponId, slot = 'weapon') {
   const item = WEAPONS.find((w) => w.id === weaponId);
   if (!item) return { success: false, message: 'No such weapon.' };
   if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
   party.gold -= item.cost;
-  character.equipment.weapon = item;
-  return { success: true, message: `${character.name} equips a ${item.name}.` };
+  character.equipment[slot] = item;
+  recomputeDerived(character);
+  return { success: true, message: `${character.name} equips a ${item.name}${slot === 'offhand' ? ' (offhand)' : ''}.` };
 }
 
 export function buyArmor(party, character, armorId) {
@@ -114,6 +118,20 @@ export function buyArmor(party, character, armorId) {
   character.equipment.armor = item;
   recomputeDerived(character);
   return { success: true, message: `${character.name} dons ${item.name}.` };
+}
+
+// WHAT: fills the offhand slot with a shield. A second weapon (dual-wield)
+// goes in that same slot via buyWeapon-into-offhand at the call site in
+// main.js, since it's just "equip this WEAPONS entry into offhand instead
+// of the main hand" — no separate service function needed for that half.
+export function buyShield(party, character, shieldId) {
+  const item = SHIELDS.find((s) => s.id === shieldId);
+  if (!item) return { success: false, message: 'No such shield.' };
+  if (party.gold < item.cost) return { success: false, message: `${item.name} costs ${item.cost} gold.` };
+  party.gold -= item.cost;
+  character.equipment.offhand = item;
+  recomputeDerived(character);
+  return { success: true, message: `${character.name} takes up a ${item.name}.` };
 }
 
 // ---------------------------------------------------------------------------
