@@ -330,7 +330,7 @@ const DUNGEON_FOUNTAIN_SP = 5;
 // 1-in-6) rather than a continuous per-step chance that scales with depth;
 // depth danger instead comes from monster tags/group counts already scaling
 // with dungeonDepth.
-const DUNGEON_WANDERING_CHECK_INTERVAL = 2; // turns between checks
+const DUNGEON_WANDERING_CHECK_INTERVAL = 3; // turns between checks
 const DUNGEON_WANDERING_CHECK_CHANCE = 1 / 6;
 
 const DUNGEON_CHEST_TRAP_CHANCE = 0.4;
