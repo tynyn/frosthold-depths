@@ -79,6 +79,8 @@ export function createDefaultParty() {
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
     items: {},
+    unidentifiedLoot: [],
+    unclaimedGear: [],
   };
 }
 
@@ -116,6 +118,8 @@ export function createPartyFromRoster(rosterEntries) {
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
     items: {},
+    unidentifiedLoot: [],
+    unclaimedGear: [],
   };
 }
 

@@ -13,8 +13,9 @@ import {
   DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES,
   DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES,
   DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE,
-  DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE,
+  DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, CHEST_LOOT_DROP_CHANCE,
 } from './data.js';
+import { rollLootDrop } from './loot.js';
 
 const key = (x, y) => `${x},${y}`;
 const edgeKey = (x, y, dir) => `${x},${y},${dir}`;
@@ -177,11 +178,15 @@ function reserveBossRoom(map, rng) {
 
 const FLAVOR_MESSAGES = ['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.'];
 
-function makeChestPayload(rng) {
+// WHAT: a chest's loot tier is capped by dungeon depth — the same
+// "relative to the encounter" principle combat drops use, applied to
+// depth as the difficulty stand-in for a chest that isn't tied to a fight.
+function makeChestPayload(rng, depth) {
   const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
   const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
   const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
-  return { type: 'CHEST', payload: { trapped, gold, gems, opened: false } };
+  const loot = rng.chance(CHEST_LOOT_DROP_CHANCE) ? rollLootDrop(rng, Math.min(4, depth)) : null;
+  return { type: 'CHEST', payload: { trapped, gold, gems, loot, opened: false } };
 }
 
 function buildRoomSpecial(type, rng, teleportTargets) {
@@ -202,7 +207,7 @@ function buildRoomSpecial(type, rng, teleportTargets) {
 // WHAT: classic "stock the dungeon" procedure — one stocking roll per
 // carved room (monster / trap / special feature / empty), with treasure as
 // a separate sub-roll rather than baked into a flat per-cell density.
-function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
+function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets, depth) {
   for (const room of rooms) {
     const cells = [];
     for (let y = room.y; y < room.y + room.h; y++) {
@@ -221,7 +226,7 @@ function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
         const others = cells.filter(([cx, cy]) => cx !== mx || cy !== my);
         if (others.length) {
           const [tx, ty] = rng.choice(others);
-          map.cellAt(tx, ty).special = makeChestPayload(rng);
+          map.cellAt(tx, ty).special = makeChestPayload(rng, depth);
         }
       }
     } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE) {
@@ -229,7 +234,7 @@ function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
     } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE + DUNGEON_ROOM_STOCK_SPECIAL_CHANCE) {
       map.cellAt(mx, my).special = buildRoomSpecial(rng.choice(DUNGEON_ROOM_SPECIAL_TYPES), rng, teleportTargets);
     } else if (rng.chance(DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE)) {
-      map.cellAt(mx, my).special = makeChestPayload(rng);
+      map.cellAt(mx, my).special = makeChestPayload(rng, depth);
     }
   }
 }
@@ -314,7 +319,7 @@ export function generateDungeonLevel(depth, rng, maxDepth = DUNGEON_MAX_DEPTH) {
       teleportTargets.push([x, y]);
     }
   }
-  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets);
+  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets, depth);
   scatterCorridorFlavor(map, rng, roomCellSet, isBossLevel ? boss.skip : null, entryKey, stairsDownKey);
 
   let bossZone = null;

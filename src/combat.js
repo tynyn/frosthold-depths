@@ -6,10 +6,12 @@
 import {
   FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR,
   BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS,
+  COMBAT_LOOT_DROP_CHANCE, monsterLootTier,
 } from './data.js';
 import { isAlive, isActive, armorClass, recomputeDerived, grantXp } from './party.js';
 import { groupIsDefeated } from './monsters.js';
 import { castSpell } from './spells.js';
+import { rollLootDrop, grantLoot, lootName } from './loot.js';
 
 function rollHit(accuracy, ac, rng) {
   const chance = Math.min(0.95, Math.max(0.05, 0.5 + (accuracy - ac) * 0.05));
@@ -95,6 +97,20 @@ function awardVictory(combat, party) {
   survivors.forEach((m) => grantXp(m, xpEach));
   party.gold += totalGold;
   combat.log.push(`Victory! The party gains ${totalXp} XP and ${totalGold} gold.`);
+
+  // Bonus loot beyond gold — tiered to the toughest group in this fight, so
+  // a weak encounter can never hand out top-tier gear.
+  if (combat.rng.chance(COMBAT_LOOT_DROP_CHANCE)) {
+    const maxTier = Math.max(...combat.groups.map((g) => monsterLootTier(g.xpEach)));
+    const drop = rollLootDrop(combat.rng, maxTier);
+    if (drop) {
+      const assessor = survivors.find((m) => m.cls === 'Robber');
+      grantLoot(party, drop, !!assessor);
+      combat.log.push(assessor
+        ? `${assessor.name}'s practiced eye names the find: ${lootName(drop)}.`
+        : 'A strange item turns up in the wreckage, still unidentified.');
+    }
+  }
 }
 
 // WHAT: advance to the next living actor in the initiative order; starts a

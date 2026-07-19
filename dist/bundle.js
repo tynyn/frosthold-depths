@@ -291,6 +291,37 @@ const ITEMS = {
 const GENERAL_STORE_STOCK_SIZE = [4, 6]; // how many distinct items a given town's store carries
 
 // ---------------------------------------------------------------------------
+// LOOT DROPS — bonus item/gear beyond gold, tiered to the encounter/depth
+// ---------------------------------------------------------------------------
+
+// WHAT: derive a loot tier (1-4) from a monster's xp value or a gear/item's
+// cost, rather than hand-tagging every catalog entry. WHY: "relative to the
+// encounter" — a weak monster's xp caps out low, so it can only ever drop
+// low-tier loot; only the boss (xp far past every threshold) reaches tier
+// 4, where the single priciest piece of gear (Plate Armor) lives — a weak
+// monster can never drop it, only the toughest fight in the game can.
+const monsterLootTier = (xp) => {
+  if (xp > 60) return 4;
+  if (xp > 32) return 3;
+  if (xp > 16) return 2;
+  return 1;
+};
+const gearLootTier = (cost) => {
+  if (cost > 150) return 4;
+  if (cost > 90) return 3;
+  if (cost > 40) return 2;
+  return 1;
+};
+
+const COMBAT_LOOT_DROP_CHANCE = 0.2; // beyond gold, per victory
+const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
+
+// WHAT: gold cost to have one unidentified loot item appraised at the
+// General Store. A living Robber assesses loot for free the moment it's
+// picked up instead — no store trip needed.
+const IDENTIFY_COST = 1;
+
+// ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------
 
@@ -446,7 +477,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, ITEMS, GENERAL_STORE_STOCK_SIZE, monsterLootTier, gearLootTier, COMBAT_LOOT_DROP_CHANCE, CHEST_LOOT_DROP_CHANCE, IDENTIFY_COST, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, AUTOMAP_WALL_COLOR, AUTOMAP_DOOR_COLOR, AUTOMAP_SPECIAL_COLOR, AUTOMAP_SHOP_COLOR, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -1114,6 +1145,8 @@ function createDefaultParty() {
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
     items: {},
+    unidentifiedLoot: [],
+    unclaimedGear: [],
   };
 }
 
@@ -1151,6 +1184,8 @@ function createPartyFromRoster(rosterEntries) {
     gems: STARTING_GEMS,
     food: STARTING_FOOD,
     items: {},
+    unidentifiedLoot: [],
+    unclaimedGear: [],
   };
 }
 
@@ -1419,6 +1454,89 @@ function useItem(itemId, ctx) {
     return { findItem, ownedItems, useItem };
   })();
 
+  // ---- src/loot.js ----
+  __mod['loot'] = (function () {
+// loot.js
+// WHAT: bonus item/gear drops beyond gold/gems — tiered so a weak encounter
+// or shallow chest can never hand out top-tier gear, plus the identify
+// pipeline (unidentified -> resolved) that gates whether a drop is usable
+// right away.
+// WHY: single place that knows the drop pool, the identify cost, and where
+// a resolved drop ends up (party.items for consumables, party.unclaimedGear
+// for weapons/armor pending a free Blacksmith equip) — combat.js and
+// dungeon.js just ask "roll a drop for this tier," main.js just asks
+// "identify index N" / "equip index N onto this character."
+
+const { WEAPONS, ARMORS, ITEMS, gearLootTier, IDENTIFY_COST } = __mod['data'];
+const { recomputeDerived } = __mod['party'];
+
+function poolForTier(maxTier) {
+  const pool = [];
+  for (const w of WEAPONS) if (gearLootTier(w.cost) <= maxTier) pool.push({ kind: 'weapon', id: w.id });
+  for (const a of ARMORS) if (gearLootTier(a.cost) <= maxTier) pool.push({ kind: 'armor', id: a.id });
+  for (const it of Object.values(ITEMS)) if (gearLootTier(it.cost) <= maxTier) pool.push({ kind: 'item', id: it.id });
+  return pool;
+}
+
+// WHAT: pick one random drop of tier <= maxTier, or null if the pool is
+// somehow empty (it never is, since tier-1 gear/items always exist).
+function rollLootDrop(rng, maxTier) {
+  const pool = poolForTier(maxTier);
+  if (!pool.length) return null;
+  return rng.choice(pool);
+}
+
+function catalogFor(kind) {
+  if (kind === 'weapon') return WEAPONS;
+  if (kind === 'armor') return ARMORS;
+  return null;
+}
+
+function lootName(drop) {
+  const catalog = catalogFor(drop.kind);
+  if (catalog) return catalog.find((x) => x.id === drop.id)?.name || drop.id;
+  return ITEMS[drop.id]?.name || drop.id;
+}
+
+// WHAT: fold a resolved (known) drop into its final place — a consumable
+// joins the shared item pool, gear waits in unclaimedGear for a free equip.
+function resolveLoot(party, drop) {
+  if (drop.kind === 'item') party.items[drop.id] = (party.items[drop.id] || 0) + 1;
+  else party.unclaimedGear.push(drop);
+}
+
+// WHAT: hand a drop to the party. hasAssessor (a living Robber) resolves it
+// immediately, for free; otherwise it waits in unidentifiedLoot until paid
+// identification at the General Store.
+function grantLoot(party, drop, hasAssessor) {
+  if (hasAssessor) resolveLoot(party, drop);
+  else party.unidentifiedLoot.push(drop);
+}
+
+function identifyLoot(party, index) {
+  const drop = party.unidentifiedLoot[index];
+  if (!drop) return { success: false, message: 'No such item.' };
+  if (party.gold < IDENTIFY_COST) return { success: false, message: `Identifying an item costs ${IDENTIFY_COST} gold.` };
+  party.gold -= IDENTIFY_COST;
+  party.unidentifiedLoot.splice(index, 1);
+  resolveLoot(party, drop);
+  return { success: true, message: `Identified: ${lootName(drop)}.` };
+}
+
+function equipLoot(party, index, character) {
+  const drop = party.unclaimedGear[index];
+  if (!drop) return { success: false, message: 'No such item.' };
+  const catalog = catalogFor(drop.kind);
+  const item = catalog.find((x) => x.id === drop.id);
+  character.equipment[drop.kind] = item;
+  party.unclaimedGear.splice(index, 1);
+  if (drop.kind === 'armor') recomputeDerived(character);
+  return { success: true, message: `${character.name} equips ${item.name}.` };
+}
+
+    return { rollLootDrop, lootName, grantLoot, identifyLoot, equipLoot };
+  })();
+
   // ---- src/combat.js ----
   __mod['combat'] = (function () {
 // combat.js
@@ -1426,10 +1544,11 @@ function useItem(itemId, ctx) {
 // WHY: encapsulates initiative, attack/cast/block/run resolution, and
 // victory/defeat so main.js only drives UI and calls into this module.
 
-const { FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS } = __mod['data'];
+const { FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, UNARMED_DAMAGE, XP_GOLD_VARIANCE, CONDITIONS, COMBAT_LOOT_DROP_CHANCE, monsterLootTier } = __mod['data'];
 const { isAlive, isActive, armorClass, recomputeDerived, grantXp } = __mod['party'];
 const { groupIsDefeated } = __mod['monsters'];
 const { castSpell } = __mod['spells'];
+const { rollLootDrop, grantLoot, lootName } = __mod['loot'];
 
 function rollHit(accuracy, ac, rng) {
   const chance = Math.min(0.95, Math.max(0.05, 0.5 + (accuracy - ac) * 0.05));
@@ -1515,6 +1634,20 @@ function awardVictory(combat, party) {
   survivors.forEach((m) => grantXp(m, xpEach));
   party.gold += totalGold;
   combat.log.push(`Victory! The party gains ${totalXp} XP and ${totalGold} gold.`);
+
+  // Bonus loot beyond gold — tiered to the toughest group in this fight, so
+  // a weak encounter can never hand out top-tier gear.
+  if (combat.rng.chance(COMBAT_LOOT_DROP_CHANCE)) {
+    const maxTier = Math.max(...combat.groups.map((g) => monsterLootTier(g.xpEach)));
+    const drop = rollLootDrop(combat.rng, maxTier);
+    if (drop) {
+      const assessor = survivors.find((m) => m.cls === 'Robber');
+      grantLoot(party, drop, !!assessor);
+      combat.log.push(assessor
+        ? `${assessor.name}'s practiced eye names the find: ${lootName(drop)}.`
+        : 'A strange item turns up in the wreckage, still unidentified.');
+    }
+  }
 }
 
 // WHAT: advance to the next living actor in the initiative order; starts a
@@ -1842,7 +1975,8 @@ const RUMORS = [
 // in reserving one sealed room with exactly one entrance (the trigger zone).
 
 const { GridMap, tryMove, floodFillReachable } = __mod['gridmap'];
-const { DIRS, DELTA, EDGE, MAP_KIND, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE } = __mod['data'];
+const { DIRS, DELTA, EDGE, MAP_KIND, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, CHEST_LOOT_DROP_CHANCE } = __mod['data'];
+const { rollLootDrop } = __mod['loot'];
 
 const key = (x, y) => `${x},${y}`;
 const edgeKey = (x, y, dir) => `${x},${y},${dir}`;
@@ -2005,11 +2139,15 @@ function reserveBossRoom(map, rng) {
 
 const FLAVOR_MESSAGES = ['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.'];
 
-function makeChestPayload(rng) {
+// WHAT: a chest's loot tier is capped by dungeon depth — the same
+// "relative to the encounter" principle combat drops use, applied to
+// depth as the difficulty stand-in for a chest that isn't tied to a fight.
+function makeChestPayload(rng, depth) {
   const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
   const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
   const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
-  return { type: 'CHEST', payload: { trapped, gold, gems, opened: false } };
+  const loot = rng.chance(CHEST_LOOT_DROP_CHANCE) ? rollLootDrop(rng, Math.min(4, depth)) : null;
+  return { type: 'CHEST', payload: { trapped, gold, gems, loot, opened: false } };
 }
 
 function buildRoomSpecial(type, rng, teleportTargets) {
@@ -2030,7 +2168,7 @@ function buildRoomSpecial(type, rng, teleportTargets) {
 // WHAT: classic "stock the dungeon" procedure — one stocking roll per
 // carved room (monster / trap / special feature / empty), with treasure as
 // a separate sub-roll rather than baked into a flat per-cell density.
-function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
+function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets, depth) {
   for (const room of rooms) {
     const cells = [];
     for (let y = room.y; y < room.y + room.h; y++) {
@@ -2049,7 +2187,7 @@ function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
         const others = cells.filter(([cx, cy]) => cx !== mx || cy !== my);
         if (others.length) {
           const [tx, ty] = rng.choice(others);
-          map.cellAt(tx, ty).special = makeChestPayload(rng);
+          map.cellAt(tx, ty).special = makeChestPayload(rng, depth);
         }
       }
     } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE) {
@@ -2057,7 +2195,7 @@ function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
     } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE + DUNGEON_ROOM_STOCK_SPECIAL_CHANCE) {
       map.cellAt(mx, my).special = buildRoomSpecial(rng.choice(DUNGEON_ROOM_SPECIAL_TYPES), rng, teleportTargets);
     } else if (rng.chance(DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE)) {
-      map.cellAt(mx, my).special = makeChestPayload(rng);
+      map.cellAt(mx, my).special = makeChestPayload(rng, depth);
     }
   }
 }
@@ -2142,7 +2280,7 @@ function generateDungeonLevel(depth, rng, maxDepth = DUNGEON_MAX_DEPTH) {
       teleportTargets.push([x, y]);
     }
   }
-  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets);
+  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets, depth);
   scatterCorridorFlavor(map, rng, roomCellSet, isBossLevel ? boss.skip : null, entryKey, stairsDownKey);
 
   let bossZone = null;
@@ -2443,7 +2581,7 @@ function encounterChanceForCell(map, x, y) {
 // no module here re-implements movement or rendering — it only calls the
 // one shared gridmap/fpview primitives.
 
-const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE, SPELL_LEVEL_TO_CHAR_LEVEL } = __mod['data'];
+const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE, SPELL_LEVEL_TO_CHAR_LEVEL, IDENTIFY_COST } = __mod['data'];
 const { RNG, hashString } = __mod['rng'];
 const { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } = __mod['gridmap'];
 const { renderFPView } = __mod['fpview'];
@@ -2455,6 +2593,7 @@ const { spellsForSchool, findSpell, castSpell, canCast } = __mod['spells'];
 const { startCombat, currentActor, advance, performAttack, performBlock, performRun, performCast, performMonsterTurn } = __mod['combat'];
 const { templeHeal, templeRestoreSp, templeCureCondition, templeResurrect, templeFullService, templeHealCost, templeRestoreSpCost, trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS } = __mod['services'];
 const { findItem, ownedItems, useItem } = __mod['items'];
+const { identifyLoot, equipLoot, lootName, grantLoot } = __mod['loot'];
 const { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } = __mod['dungeon'];
 const { generateTown } = __mod['town'];
 const { generateOverworld, encounterChanceForCell } = __mod['overworld'];
@@ -3020,6 +3159,13 @@ function openChest(special) {
   s.party.gems += p.gems;
   p.opened = true;
   s.log.push(`You find ${p.gold} gold${p.gems ? ` and ${p.gems} gem(s)` : ''} in the chest.`);
+  if (p.loot) {
+    const assessor = s.party.members.find((m) => m.cls === 'Robber' && isAlive(m));
+    grantLoot(s.party, p.loot, !!assessor);
+    s.log.push(assessor
+      ? `${assessor.name}'s practiced eye names the find: ${lootName(p.loot)}.`
+      : 'Something else is tucked inside, still unidentified.');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3237,8 +3383,10 @@ function handleShopKey(key) {
     if (key === '3') { for (const msg of templeFullService(s.party)) s.log.push(msg); }
   } else if (shop.type === 'BLACKSMITH') {
     const n = parseInt(key, 10);
+    const gearOffset = WEAPONS.length + ARMORS.length;
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
-    else if (n > WEAPONS.length && n <= WEAPONS.length + ARMORS.length) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > WEAPONS.length && n <= gearOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > gearOffset && n <= gearOffset + s.party.unclaimedGear.length) say(equipLoot(s.party, n - gearOffset - 1, c));
   } else if (shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
     if (school) {
@@ -3249,6 +3397,9 @@ function handleShopKey(key) {
   } else if (shop.type === 'GENERAL_STORE') {
     const n = parseInt(key, 10);
     if (n >= 1 && n <= shop.stock.length) say(buyItem(s.party, shop.stock[n - 1], shop.stock));
+    else if (n > shop.stock.length && n <= shop.stock.length + s.party.unidentifiedLoot.length) {
+      say(identifyLoot(s.party, n - shop.stock.length - 1));
+    }
   } else if (shop.type === 'TRAINING_GROUNDS') {
     if (key === '1') say(trainCharacter(s.party, c));
   } else if (shop.type === 'TAVERN') {
@@ -3504,7 +3655,8 @@ function renderRoster() {
       <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
-    `<div class="resources">${itemsSummary(s.party.items)}</div>`;
+    `<div class="resources">${itemsSummary(s.party.items)}</div>` +
+    lootSummary(s.party);
   setHtmlIfChanged(rosterEl, html);
 }
 
@@ -3512,6 +3664,14 @@ function itemsSummary(items) {
   const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
   if (!owned.length) return 'Items: none';
   return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
+}
+
+function lootSummary(party) {
+  const parts = [];
+  if (party.unidentifiedLoot.length) parts.push(`${party.unidentifiedLoot.length} unidentified find(s) — General Store`);
+  if (party.unclaimedGear.length) parts.push(`${party.unclaimedGear.length} unclaimed gear — Blacksmith`);
+  if (!parts.length) return '';
+  return `<div class="resources">${parts.join(' · ')}</div>`;
 }
 
 // WHAT: advance and read the current step-dolly camera offset. WHY: called
@@ -3634,6 +3794,11 @@ function renderShop() {
   } else if (s.shop.type === 'BLACKSMITH') {
     html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
       choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
+    if (s.party.unclaimedGear.length) {
+      const gearOffset = WEAPONS.length + ARMORS.length;
+      html += `<br/>Identified loot, free to equip on ${c.name}:<br/>` +
+        choiceButtons(s.party.unclaimedGear.map((drop, i) => [String(i + 1 + gearOffset), `${lootName(drop)} (free)`]));
+    }
   } else if (s.shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
     if (!school) {
@@ -3655,6 +3820,14 @@ function renderShop() {
       if (s.party.gold < item.cost) return [String(i + 1), label, 'not enough gold'];
       return [String(i + 1), label];
     }));
+    if (s.party.unidentifiedLoot.length) {
+      html += `<br/>Unidentified finds:<br/>` +
+        choiceButtons(s.party.unidentifiedLoot.map((drop, i) => {
+          const label = `Unknown item (identify: ${IDENTIFY_COST}g)`;
+          if (s.party.gold < IDENTIFY_COST) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
+          return [String(i + 1 + s.shop.stock.length), label];
+        }));
+    }
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {

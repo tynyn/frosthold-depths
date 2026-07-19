@@ -12,7 +12,7 @@ import {
   SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
   FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
   MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE,
-  SPELL_LEVEL_TO_CHAR_LEVEL,
+  SPELL_LEVEL_TO_CHAR_LEVEL, IDENTIFY_COST,
 } from './data.js';
 import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
@@ -33,6 +33,7 @@ import {
   trainCharacter, trainingCost, buyWeapon, buyArmor, learnSpell, buyFood, restAtTavern, buyItem, RUMORS,
 } from './services.js';
 import { findItem, ownedItems, useItem } from './items.js';
+import { identifyLoot, equipLoot, lootName, grantLoot } from './loot.js';
 import { generateDungeonLevel, verifyLevelConnectivity, verifyBossUnavoidable } from './dungeon.js';
 import { generateTown } from './town.js';
 import { generateOverworld, encounterChanceForCell } from './overworld.js';
@@ -598,6 +599,13 @@ function openChest(special) {
   s.party.gems += p.gems;
   p.opened = true;
   s.log.push(`You find ${p.gold} gold${p.gems ? ` and ${p.gems} gem(s)` : ''} in the chest.`);
+  if (p.loot) {
+    const assessor = s.party.members.find((m) => m.cls === 'Robber' && isAlive(m));
+    grantLoot(s.party, p.loot, !!assessor);
+    s.log.push(assessor
+      ? `${assessor.name}'s practiced eye names the find: ${lootName(p.loot)}.`
+      : 'Something else is tucked inside, still unidentified.');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -815,8 +823,10 @@ function handleShopKey(key) {
     if (key === '3') { for (const msg of templeFullService(s.party)) s.log.push(msg); }
   } else if (shop.type === 'BLACKSMITH') {
     const n = parseInt(key, 10);
+    const gearOffset = WEAPONS.length + ARMORS.length;
     if (n >= 1 && n <= WEAPONS.length) say(buyWeapon(s.party, c, WEAPONS[n - 1].id));
-    else if (n > WEAPONS.length && n <= WEAPONS.length + ARMORS.length) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > WEAPONS.length && n <= gearOffset) say(buyArmor(s.party, c, ARMORS[n - WEAPONS.length - 1].id));
+    else if (n > gearOffset && n <= gearOffset + s.party.unclaimedGear.length) say(equipLoot(s.party, n - gearOffset - 1, c));
   } else if (shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
     if (school) {
@@ -827,6 +837,9 @@ function handleShopKey(key) {
   } else if (shop.type === 'GENERAL_STORE') {
     const n = parseInt(key, 10);
     if (n >= 1 && n <= shop.stock.length) say(buyItem(s.party, shop.stock[n - 1], shop.stock));
+    else if (n > shop.stock.length && n <= shop.stock.length + s.party.unidentifiedLoot.length) {
+      say(identifyLoot(s.party, n - shop.stock.length - 1));
+    }
   } else if (shop.type === 'TRAINING_GROUNDS') {
     if (key === '1') say(trainCharacter(s.party, c));
   } else if (shop.type === 'TAVERN') {
@@ -1082,7 +1095,8 @@ function renderRoster() {
       <span class="equip">${weaponName} / ${armorName}</span>
     </div>`;
   }).join('') + `<div class="resources">Gold: ${s.party.gold}  Gems: ${s.party.gems}  Food: ${s.party.food}</div>` +
-    `<div class="resources">${itemsSummary(s.party.items)}</div>`;
+    `<div class="resources">${itemsSummary(s.party.items)}</div>` +
+    lootSummary(s.party);
   setHtmlIfChanged(rosterEl, html);
 }
 
@@ -1090,6 +1104,14 @@ function itemsSummary(items) {
   const owned = Object.entries(items || {}).filter(([, n]) => n > 0);
   if (!owned.length) return 'Items: none';
   return 'Items: ' + owned.map(([id, n]) => `${findItem(id)?.name || id} x${n}`).join(', ');
+}
+
+function lootSummary(party) {
+  const parts = [];
+  if (party.unidentifiedLoot.length) parts.push(`${party.unidentifiedLoot.length} unidentified find(s) — General Store`);
+  if (party.unclaimedGear.length) parts.push(`${party.unclaimedGear.length} unclaimed gear — Blacksmith`);
+  if (!parts.length) return '';
+  return `<div class="resources">${parts.join(' · ')}</div>`;
 }
 
 // WHAT: advance and read the current step-dolly camera offset. WHY: called
@@ -1212,6 +1234,11 @@ function renderShop() {
   } else if (s.shop.type === 'BLACKSMITH') {
     html += choiceButtons(WEAPONS.map((w, i) => [String(i + 1), `${w.name} ${w.cost}g`])) + '<br/>' +
       choiceButtons(ARMORS.map((a, i) => [String(i + 1 + WEAPONS.length), `${a.name} ${a.cost}g`]));
+    if (s.party.unclaimedGear.length) {
+      const gearOffset = WEAPONS.length + ARMORS.length;
+      html += `<br/>Identified loot, free to equip on ${c.name}:<br/>` +
+        choiceButtons(s.party.unclaimedGear.map((drop, i) => [String(i + 1 + gearOffset), `${lootName(drop)} (free)`]));
+    }
   } else if (s.shop.type === 'MAGIC_SHOP') {
     const school = schoolFor(c);
     if (!school) {
@@ -1233,6 +1260,14 @@ function renderShop() {
       if (s.party.gold < item.cost) return [String(i + 1), label, 'not enough gold'];
       return [String(i + 1), label];
     }));
+    if (s.party.unidentifiedLoot.length) {
+      html += `<br/>Unidentified finds:<br/>` +
+        choiceButtons(s.party.unidentifiedLoot.map((drop, i) => {
+          const label = `Unknown item (identify: ${IDENTIFY_COST}g)`;
+          if (s.party.gold < IDENTIFY_COST) return [String(i + 1 + s.shop.stock.length), label, 'not enough gold'];
+          return [String(i + 1 + s.shop.stock.length), label];
+        }));
+    }
   } else if (s.shop.type === 'TRAINING_GROUNDS') {
     html += choiceButtons([['1', `Train ${c.name} to level ${c.level + 1} (${trainingCost(c)}g, needs ${canLevelUp(c) ? 'enough' : 'more'} XP)`]]);
   } else if (s.shop.type === 'TAVERN') {

@@ -283,6 +283,37 @@ export const ITEMS = {
 export const GENERAL_STORE_STOCK_SIZE = [4, 6]; // how many distinct items a given town's store carries
 
 // ---------------------------------------------------------------------------
+// LOOT DROPS — bonus item/gear beyond gold, tiered to the encounter/depth
+// ---------------------------------------------------------------------------
+
+// WHAT: derive a loot tier (1-4) from a monster's xp value or a gear/item's
+// cost, rather than hand-tagging every catalog entry. WHY: "relative to the
+// encounter" — a weak monster's xp caps out low, so it can only ever drop
+// low-tier loot; only the boss (xp far past every threshold) reaches tier
+// 4, where the single priciest piece of gear (Plate Armor) lives — a weak
+// monster can never drop it, only the toughest fight in the game can.
+export const monsterLootTier = (xp) => {
+  if (xp > 60) return 4;
+  if (xp > 32) return 3;
+  if (xp > 16) return 2;
+  return 1;
+};
+export const gearLootTier = (cost) => {
+  if (cost > 150) return 4;
+  if (cost > 90) return 3;
+  if (cost > 40) return 2;
+  return 1;
+};
+
+export const COMBAT_LOOT_DROP_CHANCE = 0.2; // beyond gold, per victory
+export const CHEST_LOOT_DROP_CHANCE = 0.25; // beyond gold/gems, per chest
+
+// WHAT: gold cost to have one unidentified loot item appraised at the
+// General Store. A living Robber assesses loot for free the moment it's
+// picked up instead — no store trip needed.
+export const IDENTIFY_COST = 1;
+
+// ---------------------------------------------------------------------------
 // PROCGEN — DUNGEON
 // ---------------------------------------------------------------------------
 
