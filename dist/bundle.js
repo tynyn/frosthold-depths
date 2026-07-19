@@ -2592,13 +2592,14 @@ function currentDungeonLevel() {
   return s.dungeonMouthsState[s.currentMouthId]?.levels[s.dungeonDepth] || null;
 }
 
-// WHAT: a room can be rested in only if every edge connecting one of its
-// cells to a cell outside the room is NOT a plain open passage — a door
-// (closed by default in this engine — nothing ever props one open),
-// secret door, or wall all count as "sealed" — and no trap inside it is
-// still unsprung. WHY: this is what "the party must secure the room; door
-// closed and no untriggered traps" means in terms of the map's edge data.
+// WHAT: a room can be rested in once it has at least one door (or secret
+// door) on its boundary — that's the door the party shuts — and no trap
+// inside it is still unsprung. It does NOT need every boundary connection
+// doored; one is the minimum, not "all of them." WHY: this is what "the
+// party must secure the room; door closed and no untriggered traps" means
+// in terms of the map's edge data.
 function roomIsSecure(map, room) {
+  let hasDoor = false;
   for (let y = room.y; y < room.y + room.h; y++) {
     for (let x = room.x; x < room.x + room.w; x++) {
       const cell = map.cellAt(x, y);
@@ -2607,11 +2608,12 @@ function roomIsSecure(map, room) {
         const { dx, dy } = DELTA[dir];
         const nx = x + dx, ny = y + dy;
         if (inRoomRect(nx, ny, room)) continue; // interior edge, not a boundary
-        if (map.getEdge(x, y, dir) === EDGE.OPEN) return false; // undoored connection to the outside
+        const edge = map.getEdge(x, y, dir);
+        if (edge === EDGE.DOOR || edge === EDGE.SECRET) hasDoor = true;
       }
     }
   }
-  return true;
+  return hasDoor;
 }
 
 function restInField() {
@@ -2630,7 +2632,7 @@ function restInField() {
     const level = currentDungeonLevel();
     const room = level?.rooms.find((r) => inRoomRect(s.x, s.y, r));
     if (!room) { s.log.push('There is no room to secure here — you can only rest behind a sealed door.'); return; }
-    if (!roomIsSecure(s.map, room)) { s.log.push('This room is not secure — an open passage or a live trap remains.'); return; }
+    if (!roomIsSecure(s.map, room)) { s.log.push('This room is not secure — it needs a door to shut, and any trap in it must already be sprung.'); return; }
     const result = restAtTavern(s.party);
     s.log.push(result.message);
     if (result.success) {
