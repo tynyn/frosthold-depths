@@ -193,7 +193,12 @@ const SPELLS = {
   ],
 };
 
-const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel; // magic shop gate
+// WHAT: character level required to learn/cast a spell of a given tier.
+// WHY: classic tiered-spell-progression convention — 1st-tier spells open at
+// character level 1, 2nd-tier at level 3, 3rd-tier at level 5 (spellLevel*2-1)
+// rather than a flat 1:1 spellLevel-to-level gate. Used by both the magic
+// shop and combat/field spell-known filtering, so there is one gate formula.
+const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel * 2 - 1;
 
 // ---------------------------------------------------------------------------
 // MONSTERS
@@ -230,16 +235,22 @@ const BOSS = {
 
 const WEAPONS = [
   { id: 'dagger', name: 'Dagger', cost: 15, dmg: [1, 4] },
+  { id: 'handaxe', name: 'Hand Axe', cost: 20, dmg: [1, 6] },
   { id: 'shortsword', name: 'Short Sword', cost: 40, dmg: [2, 5] },
+  { id: 'mace', name: 'Mace', cost: 35, dmg: [2, 6] },
   { id: 'longsword', name: 'Long Sword', cost: 90, dmg: [3, 8] },
+  { id: 'battleaxe', name: 'Battle Axe', cost: 100, dmg: [3, 9] },
   { id: 'warhammer', name: 'War Hammer', cost: 150, dmg: [4, 10] },
-  { id: 'bow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
+  { id: 'shortbow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
+  { id: 'longbow', name: 'Long Bow', cost: 110, dmg: [2, 8], ranged: true },
 ];
 
 const ARMORS = [
   { id: 'robe', name: 'Robe', cost: 10, ac: 1 },
   { id: 'leather', name: 'Leather Armor', cost: 35, ac: 3 },
+  { id: 'studded', name: 'Studded Leather', cost: 60, ac: 4 },
   { id: 'chain', name: 'Chainmail', cost: 100, ac: 6 },
+  { id: 'banded', name: 'Banded Mail', cost: 150, ac: 8 },
   { id: 'plate', name: 'Plate Armor', cost: 220, ac: 10 },
 ];
 
@@ -271,13 +282,37 @@ const DUNGEON_ROOM_MAX_SIZE = 4;
 const DUNGEON_DOOR_CHANCE = 0.15;
 const DUNGEON_SECRET_CHANCE = 0.25; // fraction of doors that are secret
 const DUNGEON_MAX_DEPTH = 4; // deepest level holds the boss
-const DUNGEON_SPECIAL_BASE_DENSITY = 0.02; // fraction of floor cells per depth level
-const DUNGEON_SPECIAL_DEPTH_SCALE = 0.01;
-const DUNGEON_SPECIAL_TYPES = ['MESSAGE', 'TELEPORTER', 'SPINNER', 'DAMAGE_TRAP', 'DARKNESS', 'FOUNTAIN', 'ENCOUNTER', 'CHEST'];
+
+// WHAT: classic "stock the dungeon" procedure — each carved room gets ONE
+// stocking roll (monster / trap / special feature / empty) instead of
+// specials being scattered by raw per-cell density. A monster room has a
+// separate chance of guarding treasure; an empty room has a smaller separate
+// chance of hiding treasure alone. Generic mechanic, not copied table text.
+const DUNGEON_ROOM_STOCK_MONSTER_CHANCE = 2 / 6;
+const DUNGEON_ROOM_STOCK_TRAP_CHANCE = 1 / 6;
+const DUNGEON_ROOM_STOCK_SPECIAL_CHANCE = 1 / 6;
+// remaining chance (2/6 by default): room stocked empty
+const DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE = 0.5;
+const DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE = 1 / 6;
+const DUNGEON_ROOM_SPECIAL_TYPES = ['TELEPORTER', 'SPINNER', 'FOUNTAIN', 'MESSAGE'];
+
+// WHAT: sparse atmospheric dressing in corridors (outside stocked rooms) —
+// darkness patches and flavor text only, never mechanical content. Rooms
+// carry all the monsters/traps/treasure; corridors are connective tissue.
+const DUNGEON_CORRIDOR_FLAVOR_DENSITY = 0.015;
+const DUNGEON_CORRIDOR_FLAVOR_TYPES = ['DARKNESS', 'MESSAGE'];
+
 const DUNGEON_DAMAGE_TRAP_DMG = [3, 9];
 const DUNGEON_FOUNTAIN_SP = 5;
-const DUNGEON_ENCOUNTER_RATE = 0.08; // per step chance
-const DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE = 0.015;
+
+// WHAT: wandering-monster check — a flat chance rolled on a fixed turn
+// cadence. WHY: classic convention (check every couple of turns at a flat
+// 1-in-6) rather than a continuous per-step chance that scales with depth;
+// depth danger instead comes from monster tags/group counts already scaling
+// with dungeonDepth.
+const DUNGEON_WANDERING_CHECK_INTERVAL = 2; // turns between checks
+const DUNGEON_WANDERING_CHECK_CHANCE = 1 / 6;
+
 const DUNGEON_CHEST_TRAP_CHANCE = 0.4;
 const DUNGEON_CHEST_GOLD = [10, 60];
 const DUNGEON_CHEST_GEM_CHANCE = 0.3;
@@ -380,7 +415,7 @@ const FPVIEW_BUMP_SHAKE_MAGNITUDE = 6; // px, decays to 0 over the duration
 
 const DEFAULT_SEED = 1337;
 
-    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
+    return { DIRS, DELTA, OPPOSITE, LEFT_OF, RIGHT_OF, EDGE, MAP_KIND, SPECIAL_TRIGGER, STATS, CLASSES, BASE_STAT, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL, SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL, TRAINING_GOLD_PER_LEVEL, STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP, MAX_ROSTER_SIZE, RANDOM_NAMES, DEFAULT_PARTY, CONDITIONS, RESURRECT_GOLD_COST, RESURRECT_GEM_COST, FRONT_RANK_SIZE, BLOCK_AC_BONUS, RUN_BASE_CHANCE, RUN_SPEED_FACTOR, BACK_RANK_MELEE_PENALTY, XP_GOLD_VARIANCE, UNARMED_DAMAGE, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL, MONSTERS, BOSS, WEAPONS, ARMORS, TEMPLE_COSTS, TAVERN_COSTS, MAGIC_SHOP_SPELL_MARKUP, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, OVERWORLD_SIZE, OVERWORLD_TOWN_GATES, OVERWORLD_DUNGEON_MOUTHS, OVERWORLD_MIN_FEATURE_SPACING, OVERWORLD_NOISE_SCALE, OVERWORLD_MOISTURE_SCALE, BIOME_THRESHOLDS, BIOME_DANGER, BIOME_MONSTER_TAGS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, OVERWORLD_SIGNPOST_MESSAGES, OVERWORLD_SHRINE_BUFF, OVERWORLD_CACHE_GOLD, OVERWORLD_OASIS_HEAL_FRACTION, TOWN_SIZE, FPVIEW_MAX_DEPTH, FPVIEW_DEPTH_SHADE, FPVIEW_TORCH_WARMTH, FPVIEW_TORCH_FALLOFF, FPVIEW_TORCH_COLOR, FPVIEW_GRID_COLOR, FPVIEW_GRID_WIDTH, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, DEFAULT_SEED };
   })();
 
   // ---- src/rng.js ----
@@ -1510,7 +1545,7 @@ function performMonsterTurn(combat, party, groupIdx) {
 // onto a town shopkeeper tile. WHY: keeps all gold/gem/XP bookkeeping in one
 // place instead of scattered across town.js tile handlers.
 
-const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS } = __mod['data'];
+const { TEMPLE_COSTS, TAVERN_COSTS, WEAPONS, ARMORS, TRAINING_GOLD_PER_LEVEL, MAGIC_SHOP_SPELL_MARKUP, XP_TO_LEVEL, SPELLS, SPELL_LEVEL_TO_CHAR_LEVEL } = __mod['data'];
 const { recomputeDerived, canLevelUp, levelUp, isAlive, schoolFor } = __mod['party'];
 
 // ---------------------------------------------------------------------------
@@ -1630,7 +1665,8 @@ function learnSpell(party, character, spellId) {
   const spell = SPELLS[school].find((s) => s.id === spellId);
   if (!spell) return { success: false, message: 'No such spell.' };
   if (character.knownSpells.includes(spellId)) return { success: false, message: `${character.name} already knows ${spell.name}.` };
-  if (character.level < spell.spellLevel) return { success: false, message: `${character.name} must be level ${spell.spellLevel} to learn ${spell.name}.` };
+  const reqLevel = SPELL_LEVEL_TO_CHAR_LEVEL(spell.spellLevel);
+  if (character.level < reqLevel) return { success: false, message: `${character.name} must be level ${reqLevel} to learn ${spell.name}.` };
   const cost = spell.spCost * MAGIC_SHOP_SPELL_MARKUP;
   if (party.gold < cost) return { success: false, message: `${spell.name} costs ${cost} gold.` };
   party.gold -= cost;
@@ -1679,7 +1715,7 @@ const RUMORS = [
 // in reserving one sealed room with exactly one entrance (the trigger zone).
 
 const { GridMap, tryMove, floodFillReachable } = __mod['gridmap'];
-const { DIRS, DELTA, EDGE, MAP_KIND, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE } = __mod['data'];
+const { DIRS, DELTA, EDGE, MAP_KIND, DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE, DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH, DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE, DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES, DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES, DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE, DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE } = __mod['data'];
 
 const key = (x, y) => `${x},${y}`;
 const edgeKey = (x, y, dir) => `${x},${y},${dir}`;
@@ -1840,49 +1876,80 @@ function reserveBossRoom(map, rng) {
   return { rect: { x: rx, y: ry, w: rw, h: rh }, skip, throat };
 }
 
-function placeSpecials(map, rng, depth, reserved, entryKey, stairsDownKey) {
-  const density = DUNGEON_SPECIAL_BASE_DENSITY + depth * DUNGEON_SPECIAL_DEPTH_SCALE;
-  const floorCells = [];
+const FLAVOR_MESSAGES = ['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.'];
+
+function makeChestPayload(rng) {
+  const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
+  const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
+  const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
+  return { type: 'CHEST', payload: { trapped, gold, gems, opened: false } };
+}
+
+function buildRoomSpecial(type, rng, teleportTargets) {
+  switch (type) {
+    case 'TELEPORTER': {
+      const [tx, ty] = rng.choice(teleportTargets);
+      return { type, payload: { x: tx, y: ty } };
+    }
+    case 'FOUNTAIN':
+      return { type, payload: { sp: DUNGEON_FOUNTAIN_SP, used: false } };
+    case 'MESSAGE':
+      return { type, payload: { text: rng.choice(FLAVOR_MESSAGES) } };
+    default:
+      return { type, payload: {} };
+  }
+}
+
+// WHAT: classic "stock the dungeon" procedure — one stocking roll per
+// carved room (monster / trap / special feature / empty), with treasure as
+// a separate sub-roll rather than baked into a flat per-cell density.
+function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
+  for (const room of rooms) {
+    const cells = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) {
+        const k = key(x, y);
+        if (k === entryKey || k === stairsDownKey) continue;
+        cells.push([x, y]);
+      }
+    }
+    if (!cells.length) continue;
+    const [mx, my] = rng.choice(cells);
+    const roll = rng.next();
+    if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE) {
+      map.cellAt(mx, my).special = { type: 'ENCOUNTER', payload: {} };
+      if (rng.chance(DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE)) {
+        const others = cells.filter(([cx, cy]) => cx !== mx || cy !== my);
+        if (others.length) {
+          const [tx, ty] = rng.choice(others);
+          map.cellAt(tx, ty).special = makeChestPayload(rng);
+        }
+      }
+    } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE) {
+      map.cellAt(mx, my).special = { type: 'DAMAGE_TRAP', payload: { dmg: [DUNGEON_DAMAGE_TRAP_DMG[0], DUNGEON_DAMAGE_TRAP_DMG[1]] } };
+    } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE + DUNGEON_ROOM_STOCK_SPECIAL_CHANCE) {
+      map.cellAt(mx, my).special = buildRoomSpecial(rng.choice(DUNGEON_ROOM_SPECIAL_TYPES), rng, teleportTargets);
+    } else if (rng.chance(DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE)) {
+      map.cellAt(mx, my).special = makeChestPayload(rng);
+    }
+  }
+}
+
+// WHAT: sparse atmospheric dressing in corridors (outside stocked rooms) —
+// darkness patches and flavor text only, never mechanical content. Rooms
+// carry all the monsters/traps/treasure via stockRooms above.
+function scatterCorridorFlavor(map, rng, roomCellSet, reserved, entryKey, stairsDownKey) {
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       const k = key(x, y);
       if (reserved && reserved.has(k)) continue;
+      if (roomCellSet.has(k)) continue;
       if (k === entryKey || k === stairsDownKey) continue;
-      floorCells.push([x, y]);
-    }
-  }
-  const teleportTargets = floorCells.slice();
-  for (const [x, y] of floorCells) {
-    if (!rng.chance(density)) continue;
-    const type = rng.choice(DUNGEON_SPECIAL_TYPES);
-    const cell = map.cellAt(x, y);
-    switch (type) {
-      case 'DARKNESS':
-        cell.dark = true;
-        break;
-      case 'TELEPORTER': {
-        const [tx, ty] = rng.choice(teleportTargets);
-        cell.special = { type, payload: { x: tx, y: ty } };
-        break;
-      }
-      case 'DAMAGE_TRAP':
-        cell.special = { type, payload: { dmg: [DUNGEON_DAMAGE_TRAP_DMG[0], DUNGEON_DAMAGE_TRAP_DMG[1]] } };
-        break;
-      case 'FOUNTAIN':
-        cell.special = { type, payload: { sp: DUNGEON_FOUNTAIN_SP, used: false } };
-        break;
-      case 'CHEST': {
-        const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
-        const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
-        const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
-        cell.special = { type, payload: { trapped, gold, gems, opened: false } };
-        break;
-      }
-      case 'MESSAGE':
-        cell.special = { type, payload: { text: rng.choice(['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.']) } };
-        break;
-      default:
-        cell.special = { type, payload: {} };
+      if (!rng.chance(DUNGEON_CORRIDOR_FLAVOR_DENSITY)) continue;
+      const type = rng.choice(DUNGEON_CORRIDOR_FLAVOR_TYPES);
+      const cell = map.cellAt(x, y);
+      if (type === 'DARKNESS') cell.dark = true;
+      else cell.special = { type, payload: { text: rng.choice(FLAVOR_MESSAGES) } };
     }
   }
 }
@@ -1933,7 +2000,23 @@ function generateDungeonLevel(depth, rng, maxDepth = DUNGEON_MAX_DEPTH) {
     map.cellAt(dx, dy).special = { type: 'STAIRS_DOWN', payload: { nextDepth: depth + 1 } };
   }
 
-  placeSpecials(map, rng, depth, isBossLevel ? boss.skip : null, key(0, 0), stairsDown ? key(stairsDown.x, stairsDown.y) : null);
+  const entryKey = key(0, 0);
+  const stairsDownKey = stairsDown ? key(stairsDown.x, stairsDown.y) : null;
+  const roomCellSet = new Set();
+  for (const r of rooms) {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) roomCellSet.add(key(x, y));
+  }
+  const teleportTargets = [];
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      const k = key(x, y);
+      if (k === entryKey || k === stairsDownKey) continue;
+      if (isBossLevel && boss.skip.has(k)) continue;
+      teleportTargets.push([x, y]);
+    }
+  }
+  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets);
+  scatterCorridorFlavor(map, rng, roomCellSet, isBossLevel ? boss.skip : null, entryKey, stairsDownKey);
 
   let bossZone = null;
   if (isBossLevel) {
@@ -2220,7 +2303,7 @@ function encounterChanceForCell(map, x, y) {
 // no module here re-implements movement or rendering — it only calls the
 // one shared gridmap/fpview primitives.
 
-const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE } = __mod['data'];
+const { DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED, DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE, DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS, BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS, SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS, FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE, MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE, SPELL_LEVEL_TO_CHAR_LEVEL } = __mod['data'];
 const { RNG, hashString } = __mod['rng'];
 const { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } = __mod['gridmap'];
 const { renderFPView } = __mod['fpview'];
@@ -2336,6 +2419,7 @@ function boot() {
     currentTownId: null,
     currentMouthId: null,
     dungeonDepth: null,
+    dungeonTurnCounter: 0,
     showAutoMap: false,
     combat: null,
     combatUI: null,
@@ -2460,8 +2544,14 @@ function advanceTurn() {
     if (s.mode !== 'FIELD') return; // special changed mode (combat/shop/transition)
   }
   if (s.map.kind === MAP_KIND.DUNGEON) {
-    const rate = DUNGEON_ENCOUNTER_RATE + s.dungeonDepth * DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE;
-    if (s.rng.chance(rate)) startEncounterFlow();
+    // Classic wandering-monster check: a flat chance rolled on a fixed turn
+    // cadence, not a continuous per-step probability — depth danger comes
+    // from monster tags/group counts (tagForDepth/numGroupsForDepth) instead.
+    s.dungeonTurnCounter += 1;
+    if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
+      s.dungeonTurnCounter = 0;
+      if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+    }
   } else if (s.map.kind === MAP_KIND.OVERWORLD) {
     const rate = encounterChanceForCell(s.map, s.x, s.y);
     if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
@@ -3230,8 +3320,9 @@ function renderShop() {
     } else {
       html += choiceButtons(spellsForSchool(school).map((sp, i) => {
         const label = `${sp.name} (L${sp.spellLevel}, ${sp.spCost * MAGIC_SHOP_SPELL_MARKUP}g)`;
+        const reqLevel = SPELL_LEVEL_TO_CHAR_LEVEL(sp.spellLevel);
         if (c.knownSpells.includes(sp.id)) return [String(i + 1), label, 'known'];
-        if (c.level < sp.spellLevel) return [String(i + 1), label, `needs level ${sp.spellLevel}`];
+        if (c.level < reqLevel) return [String(i + 1), label, `needs level ${reqLevel}`];
         if (s.party.gold < sp.spCost * MAGIC_SHOP_SPELL_MARKUP) return [String(i + 1), label, 'not enough gold'];
         return [String(i + 1), label];
       }));

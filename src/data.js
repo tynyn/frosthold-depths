@@ -185,7 +185,12 @@ export const SPELLS = {
   ],
 };
 
-export const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel; // magic shop gate
+// WHAT: character level required to learn/cast a spell of a given tier.
+// WHY: classic tiered-spell-progression convention — 1st-tier spells open at
+// character level 1, 2nd-tier at level 3, 3rd-tier at level 5 (spellLevel*2-1)
+// rather than a flat 1:1 spellLevel-to-level gate. Used by both the magic
+// shop and combat/field spell-known filtering, so there is one gate formula.
+export const SPELL_LEVEL_TO_CHAR_LEVEL = (spellLevel) => spellLevel * 2 - 1;
 
 // ---------------------------------------------------------------------------
 // MONSTERS
@@ -222,16 +227,22 @@ export const BOSS = {
 
 export const WEAPONS = [
   { id: 'dagger', name: 'Dagger', cost: 15, dmg: [1, 4] },
+  { id: 'handaxe', name: 'Hand Axe', cost: 20, dmg: [1, 6] },
   { id: 'shortsword', name: 'Short Sword', cost: 40, dmg: [2, 5] },
+  { id: 'mace', name: 'Mace', cost: 35, dmg: [2, 6] },
   { id: 'longsword', name: 'Long Sword', cost: 90, dmg: [3, 8] },
+  { id: 'battleaxe', name: 'Battle Axe', cost: 100, dmg: [3, 9] },
   { id: 'warhammer', name: 'War Hammer', cost: 150, dmg: [4, 10] },
-  { id: 'bow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
+  { id: 'shortbow', name: 'Short Bow', cost: 70, dmg: [2, 6], ranged: true },
+  { id: 'longbow', name: 'Long Bow', cost: 110, dmg: [2, 8], ranged: true },
 ];
 
 export const ARMORS = [
   { id: 'robe', name: 'Robe', cost: 10, ac: 1 },
   { id: 'leather', name: 'Leather Armor', cost: 35, ac: 3 },
+  { id: 'studded', name: 'Studded Leather', cost: 60, ac: 4 },
   { id: 'chain', name: 'Chainmail', cost: 100, ac: 6 },
+  { id: 'banded', name: 'Banded Mail', cost: 150, ac: 8 },
   { id: 'plate', name: 'Plate Armor', cost: 220, ac: 10 },
 ];
 
@@ -263,13 +274,37 @@ export const DUNGEON_ROOM_MAX_SIZE = 4;
 export const DUNGEON_DOOR_CHANCE = 0.15;
 export const DUNGEON_SECRET_CHANCE = 0.25; // fraction of doors that are secret
 export const DUNGEON_MAX_DEPTH = 4; // deepest level holds the boss
-export const DUNGEON_SPECIAL_BASE_DENSITY = 0.02; // fraction of floor cells per depth level
-export const DUNGEON_SPECIAL_DEPTH_SCALE = 0.01;
-export const DUNGEON_SPECIAL_TYPES = ['MESSAGE', 'TELEPORTER', 'SPINNER', 'DAMAGE_TRAP', 'DARKNESS', 'FOUNTAIN', 'ENCOUNTER', 'CHEST'];
+
+// WHAT: classic "stock the dungeon" procedure — each carved room gets ONE
+// stocking roll (monster / trap / special feature / empty) instead of
+// specials being scattered by raw per-cell density. A monster room has a
+// separate chance of guarding treasure; an empty room has a smaller separate
+// chance of hiding treasure alone. Generic mechanic, not copied table text.
+export const DUNGEON_ROOM_STOCK_MONSTER_CHANCE = 2 / 6;
+export const DUNGEON_ROOM_STOCK_TRAP_CHANCE = 1 / 6;
+export const DUNGEON_ROOM_STOCK_SPECIAL_CHANCE = 1 / 6;
+// remaining chance (2/6 by default): room stocked empty
+export const DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE = 0.5;
+export const DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE = 1 / 6;
+export const DUNGEON_ROOM_SPECIAL_TYPES = ['TELEPORTER', 'SPINNER', 'FOUNTAIN', 'MESSAGE'];
+
+// WHAT: sparse atmospheric dressing in corridors (outside stocked rooms) —
+// darkness patches and flavor text only, never mechanical content. Rooms
+// carry all the monsters/traps/treasure; corridors are connective tissue.
+export const DUNGEON_CORRIDOR_FLAVOR_DENSITY = 0.015;
+export const DUNGEON_CORRIDOR_FLAVOR_TYPES = ['DARKNESS', 'MESSAGE'];
+
 export const DUNGEON_DAMAGE_TRAP_DMG = [3, 9];
 export const DUNGEON_FOUNTAIN_SP = 5;
-export const DUNGEON_ENCOUNTER_RATE = 0.08; // per step chance
-export const DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE = 0.015;
+
+// WHAT: wandering-monster check — a flat chance rolled on a fixed turn
+// cadence. WHY: classic convention (check every couple of turns at a flat
+// 1-in-6) rather than a continuous per-step chance that scales with depth;
+// depth danger instead comes from monster tags/group counts already scaling
+// with dungeonDepth.
+export const DUNGEON_WANDERING_CHECK_INTERVAL = 2; // turns between checks
+export const DUNGEON_WANDERING_CHECK_CHANCE = 1 / 6;
+
 export const DUNGEON_CHEST_TRAP_CHANCE = 0.4;
 export const DUNGEON_CHEST_GOLD = [10, 60];
 export const DUNGEON_CHEST_GEM_CHANCE = 0.3;

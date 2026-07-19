@@ -6,12 +6,13 @@
 
 import {
   DIRS, DELTA, OPPOSITE, EDGE, MAP_KIND, SPECIAL_TRIGGER, DEFAULT_SEED,
-  DUNGEON_MAX_DEPTH, DUNGEON_ENCOUNTER_RATE, DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE,
+  DUNGEON_MAX_DEPTH, DUNGEON_WANDERING_CHECK_INTERVAL, DUNGEON_WANDERING_CHECK_CHANCE,
   DUNGEON_DARKNESS_VIEW_DEPTH, FPVIEW_MAX_DEPTH, WEAPONS, ARMORS, SPELLS,
   BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
   SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
   FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
   MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE,
+  SPELL_LEVEL_TO_CHAR_LEVEL,
 } from './data.js';
 import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
@@ -136,6 +137,7 @@ function boot() {
     currentTownId: null,
     currentMouthId: null,
     dungeonDepth: null,
+    dungeonTurnCounter: 0,
     showAutoMap: false,
     combat: null,
     combatUI: null,
@@ -260,8 +262,14 @@ function advanceTurn() {
     if (s.mode !== 'FIELD') return; // special changed mode (combat/shop/transition)
   }
   if (s.map.kind === MAP_KIND.DUNGEON) {
-    const rate = DUNGEON_ENCOUNTER_RATE + s.dungeonDepth * DUNGEON_ENCOUNTER_RATE_DEPTH_SCALE;
-    if (s.rng.chance(rate)) startEncounterFlow();
+    // Classic wandering-monster check: a flat chance rolled on a fixed turn
+    // cadence, not a continuous per-step probability — depth danger comes
+    // from monster tags/group counts (tagForDepth/numGroupsForDepth) instead.
+    s.dungeonTurnCounter += 1;
+    if (s.dungeonTurnCounter >= DUNGEON_WANDERING_CHECK_INTERVAL) {
+      s.dungeonTurnCounter = 0;
+      if (s.rng.chance(DUNGEON_WANDERING_CHECK_CHANCE)) startEncounterFlow();
+    }
   } else if (s.map.kind === MAP_KIND.OVERWORLD) {
     const rate = encounterChanceForCell(s.map, s.x, s.y);
     if (rate > 0 && s.rng.chance(rate)) startEncounterFlow();
@@ -1030,8 +1038,9 @@ function renderShop() {
     } else {
       html += choiceButtons(spellsForSchool(school).map((sp, i) => {
         const label = `${sp.name} (L${sp.spellLevel}, ${sp.spCost * MAGIC_SHOP_SPELL_MARKUP}g)`;
+        const reqLevel = SPELL_LEVEL_TO_CHAR_LEVEL(sp.spellLevel);
         if (c.knownSpells.includes(sp.id)) return [String(i + 1), label, 'known'];
-        if (c.level < sp.spellLevel) return [String(i + 1), label, `needs level ${sp.spellLevel}`];
+        if (c.level < reqLevel) return [String(i + 1), label, `needs level ${reqLevel}`];
         if (s.party.gold < sp.spCost * MAGIC_SHOP_SPELL_MARKUP) return [String(i + 1), label, 'not enough gold'];
         return [String(i + 1), label];
       }));

@@ -9,7 +9,9 @@ import {
   DIRS, DELTA, EDGE, MAP_KIND,
   DUNGEON_SIZE, DUNGEON_BRAID_CHANCE, DUNGEON_ROOM_COUNT, DUNGEON_ROOM_MIN_SIZE,
   DUNGEON_ROOM_MAX_SIZE, DUNGEON_DOOR_CHANCE, DUNGEON_SECRET_CHANCE, DUNGEON_MAX_DEPTH,
-  DUNGEON_SPECIAL_BASE_DENSITY, DUNGEON_SPECIAL_DEPTH_SCALE, DUNGEON_SPECIAL_TYPES,
+  DUNGEON_ROOM_STOCK_MONSTER_CHANCE, DUNGEON_ROOM_STOCK_TRAP_CHANCE, DUNGEON_ROOM_STOCK_SPECIAL_CHANCE,
+  DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE, DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE, DUNGEON_ROOM_SPECIAL_TYPES,
+  DUNGEON_CORRIDOR_FLAVOR_DENSITY, DUNGEON_CORRIDOR_FLAVOR_TYPES,
   DUNGEON_DAMAGE_TRAP_DMG, DUNGEON_FOUNTAIN_SP, DUNGEON_CHEST_TRAP_CHANCE,
   DUNGEON_CHEST_GOLD, DUNGEON_CHEST_GEM_CHANCE,
 } from './data.js';
@@ -173,49 +175,80 @@ function reserveBossRoom(map, rng) {
   return { rect: { x: rx, y: ry, w: rw, h: rh }, skip, throat };
 }
 
-function placeSpecials(map, rng, depth, reserved, entryKey, stairsDownKey) {
-  const density = DUNGEON_SPECIAL_BASE_DENSITY + depth * DUNGEON_SPECIAL_DEPTH_SCALE;
-  const floorCells = [];
+const FLAVOR_MESSAGES = ['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.'];
+
+function makeChestPayload(rng) {
+  const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
+  const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
+  const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
+  return { type: 'CHEST', payload: { trapped, gold, gems, opened: false } };
+}
+
+function buildRoomSpecial(type, rng, teleportTargets) {
+  switch (type) {
+    case 'TELEPORTER': {
+      const [tx, ty] = rng.choice(teleportTargets);
+      return { type, payload: { x: tx, y: ty } };
+    }
+    case 'FOUNTAIN':
+      return { type, payload: { sp: DUNGEON_FOUNTAIN_SP, used: false } };
+    case 'MESSAGE':
+      return { type, payload: { text: rng.choice(FLAVOR_MESSAGES) } };
+    default:
+      return { type, payload: {} };
+  }
+}
+
+// WHAT: classic "stock the dungeon" procedure — one stocking roll per
+// carved room (monster / trap / special feature / empty), with treasure as
+// a separate sub-roll rather than baked into a flat per-cell density.
+function stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets) {
+  for (const room of rooms) {
+    const cells = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) {
+        const k = key(x, y);
+        if (k === entryKey || k === stairsDownKey) continue;
+        cells.push([x, y]);
+      }
+    }
+    if (!cells.length) continue;
+    const [mx, my] = rng.choice(cells);
+    const roll = rng.next();
+    if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE) {
+      map.cellAt(mx, my).special = { type: 'ENCOUNTER', payload: {} };
+      if (rng.chance(DUNGEON_ROOM_TREASURE_WITH_MONSTER_CHANCE)) {
+        const others = cells.filter(([cx, cy]) => cx !== mx || cy !== my);
+        if (others.length) {
+          const [tx, ty] = rng.choice(others);
+          map.cellAt(tx, ty).special = makeChestPayload(rng);
+        }
+      }
+    } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE) {
+      map.cellAt(mx, my).special = { type: 'DAMAGE_TRAP', payload: { dmg: [DUNGEON_DAMAGE_TRAP_DMG[0], DUNGEON_DAMAGE_TRAP_DMG[1]] } };
+    } else if (roll < DUNGEON_ROOM_STOCK_MONSTER_CHANCE + DUNGEON_ROOM_STOCK_TRAP_CHANCE + DUNGEON_ROOM_STOCK_SPECIAL_CHANCE) {
+      map.cellAt(mx, my).special = buildRoomSpecial(rng.choice(DUNGEON_ROOM_SPECIAL_TYPES), rng, teleportTargets);
+    } else if (rng.chance(DUNGEON_ROOM_HIDDEN_TREASURE_CHANCE)) {
+      map.cellAt(mx, my).special = makeChestPayload(rng);
+    }
+  }
+}
+
+// WHAT: sparse atmospheric dressing in corridors (outside stocked rooms) —
+// darkness patches and flavor text only, never mechanical content. Rooms
+// carry all the monsters/traps/treasure via stockRooms above.
+function scatterCorridorFlavor(map, rng, roomCellSet, reserved, entryKey, stairsDownKey) {
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
       const k = key(x, y);
       if (reserved && reserved.has(k)) continue;
+      if (roomCellSet.has(k)) continue;
       if (k === entryKey || k === stairsDownKey) continue;
-      floorCells.push([x, y]);
-    }
-  }
-  const teleportTargets = floorCells.slice();
-  for (const [x, y] of floorCells) {
-    if (!rng.chance(density)) continue;
-    const type = rng.choice(DUNGEON_SPECIAL_TYPES);
-    const cell = map.cellAt(x, y);
-    switch (type) {
-      case 'DARKNESS':
-        cell.dark = true;
-        break;
-      case 'TELEPORTER': {
-        const [tx, ty] = rng.choice(teleportTargets);
-        cell.special = { type, payload: { x: tx, y: ty } };
-        break;
-      }
-      case 'DAMAGE_TRAP':
-        cell.special = { type, payload: { dmg: [DUNGEON_DAMAGE_TRAP_DMG[0], DUNGEON_DAMAGE_TRAP_DMG[1]] } };
-        break;
-      case 'FOUNTAIN':
-        cell.special = { type, payload: { sp: DUNGEON_FOUNTAIN_SP, used: false } };
-        break;
-      case 'CHEST': {
-        const trapped = rng.chance(DUNGEON_CHEST_TRAP_CHANCE);
-        const gold = rng.int(DUNGEON_CHEST_GOLD[0], DUNGEON_CHEST_GOLD[1]);
-        const gems = rng.chance(DUNGEON_CHEST_GEM_CHANCE) ? 1 : 0;
-        cell.special = { type, payload: { trapped, gold, gems, opened: false } };
-        break;
-      }
-      case 'MESSAGE':
-        cell.special = { type, payload: { text: rng.choice(['The walls are cold here.', 'Something scratched these stones long ago.', 'A faint draft chills your torch.']) } };
-        break;
-      default:
-        cell.special = { type, payload: {} };
+      if (!rng.chance(DUNGEON_CORRIDOR_FLAVOR_DENSITY)) continue;
+      const type = rng.choice(DUNGEON_CORRIDOR_FLAVOR_TYPES);
+      const cell = map.cellAt(x, y);
+      if (type === 'DARKNESS') cell.dark = true;
+      else cell.special = { type, payload: { text: rng.choice(FLAVOR_MESSAGES) } };
     }
   }
 }
@@ -266,7 +299,23 @@ export function generateDungeonLevel(depth, rng, maxDepth = DUNGEON_MAX_DEPTH) {
     map.cellAt(dx, dy).special = { type: 'STAIRS_DOWN', payload: { nextDepth: depth + 1 } };
   }
 
-  placeSpecials(map, rng, depth, isBossLevel ? boss.skip : null, key(0, 0), stairsDown ? key(stairsDown.x, stairsDown.y) : null);
+  const entryKey = key(0, 0);
+  const stairsDownKey = stairsDown ? key(stairsDown.x, stairsDown.y) : null;
+  const roomCellSet = new Set();
+  for (const r of rooms) {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) roomCellSet.add(key(x, y));
+  }
+  const teleportTargets = [];
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      const k = key(x, y);
+      if (k === entryKey || k === stairsDownKey) continue;
+      if (isBossLevel && boss.skip.has(k)) continue;
+      teleportTargets.push([x, y]);
+    }
+  }
+  stockRooms(map, rng, rooms, entryKey, stairsDownKey, teleportTargets);
+  scatterCorridorFlavor(map, rng, roomCellSet, isBossLevel ? boss.skip : null, entryKey, stairsDownKey);
 
   let bossZone = null;
   if (isBossLevel) {
