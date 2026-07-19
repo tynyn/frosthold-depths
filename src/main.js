@@ -1063,24 +1063,28 @@ function handleFieldCastKey(key) {
 }
 
 // ---------------------------------------------------------------------------
-// FIELD ITEM/SCROLL USE — General Store consumables and looted scrolls,
-// used/read outside combat. Mirrors the field-cast flow: pick an owned
-// entry, then (if it needs one) pick a target ally; a self-target item or
-// a learnable scroll's "who learns it" pick both flow through the same
-// TARGET phase. combatOnly/group-target spells never appear here because
-// no scroll in the catalog is cast-mode against anything but an ally.
+// FIELD ITEM/SCROLL/GEAR USE — General Store consumables, looted scrolls,
+// and identified-but-unclaimed gear, all usable outside combat. Mirrors the
+// field-cast flow: pick an owned entry, then (if it needs one) pick a
+// target ally; a self-target item, a learnable scroll's "who learns it"
+// pick, and a gear "who equips it" pick all flow through the same TARGET
+// phase. Gear always needs a target — there's no "self-equip" shortcut,
+// since the party (not any one member) is what's carrying it. combatOnly/
+// group-target spells never appear here because no scroll in the catalog
+// is cast-mode against anything but an ally.
 // ---------------------------------------------------------------------------
 
 function ownedUsables(party) {
   const items = ownedItems(party).map((e) => ({ kind: 'item', item: e.item, count: e.count }));
   const scrolls = ownedScrolls(party).map((e) => ({ kind: 'scroll', scroll: e.scroll, count: e.count }));
-  return [...items, ...scrolls];
+  const gear = party.unclaimedGear.map((drop, index) => ({ kind: 'gear', drop, index }));
+  return [...items, ...scrolls, ...gear];
 }
 
 function openFieldItems() {
   const s = Game.state;
   if (s.mode !== 'FIELD') return;
-  if (!ownedUsables(s.party).length) { s.log.push('The party carries no usable items or scrolls.'); return; }
+  if (!ownedUsables(s.party).length) { s.log.push('The party carries no usable items, scrolls, or gear.'); return; }
   s.mode = 'ITEM_USE';
   s.fieldItem = { phase: 'ITEM', selection: null };
 }
@@ -1099,6 +1103,7 @@ function handleFieldItemKey(key) {
       s.mode = 'FIELD'; s.fieldItem = null;
       return;
     }
+    if (entry.kind === 'gear') { fi.phase = 'TARGET'; return; }
     const spell = findSpell(entry.scroll.spellId);
     if (entry.scroll.learnable || spell.target === 'ally') { fi.phase = 'TARGET'; return; }
     const result = useScroll(entry.scroll.id, s.party.members[0], { party: s.party, log: s.log, rng: s.rng, state: s });
@@ -1113,6 +1118,9 @@ function handleFieldItemKey(key) {
     const entry = fi.selection;
     if (entry.kind === 'item') {
       useItem(entry.item.id, { party: s.party, log: s.log, state: s, targetCharacter: target });
+    } else if (entry.kind === 'gear') {
+      const result = equipLoot(s.party, entry.index, target);
+      s.log.push(result.message);
     } else {
       const result = useScroll(entry.scroll.id, target, { party: s.party, log: s.log, rng: s.rng, state: s, targetCharacter: target });
       if (result.message) s.log.push(result.message);
@@ -1156,7 +1164,7 @@ function itemsSummary(party) {
 function lootSummary(party) {
   const parts = [];
   if (party.unidentifiedLoot.length) parts.push(`${party.unidentifiedLoot.length} unidentified find(s) — General Store`);
-  if (party.unclaimedGear.length) parts.push(`${party.unclaimedGear.length} unclaimed gear — Blacksmith`);
+  if (party.unclaimedGear.length) parts.push(`${party.unclaimedGear.length} unclaimed gear — equip via Items (I) or free at the Blacksmith`);
   if (!parts.length) return '';
   return `<div class="resources">${parts.join(' · ')}</div>`;
 }
@@ -1372,18 +1380,19 @@ function renderFieldCast() {
 function renderFieldItems() {
   const s = Game.state;
   const fi = s.fieldItem;
-  let html = '<b>Use Item / Scroll</b><br/>';
+  let html = '<b>Use Item / Scroll / Gear</b><br/>';
   if (fi.phase === 'ITEM') {
     const owned = ownedUsables(s.party);
     html += choiceButtons(owned.map((entry, i) => {
       if (entry.kind === 'item') return [String(i + 1), `${entry.item.name} x${entry.count}`];
+      if (entry.kind === 'gear') return [String(i + 1), `${lootName(entry.drop)} (equip)`];
       const tag = entry.scroll.learnable ? 'learn' : 'cast';
       return [String(i + 1), `${entry.scroll.name} x${entry.count} (${tag})`];
     }));
   } else if (fi.phase === 'TARGET') {
     const entry = fi.selection;
-    const name = entry.kind === 'item' ? entry.item.name : entry.scroll.name;
-    const verb = entry.kind === 'scroll' && entry.scroll.learnable ? 'Who learns' : 'Using';
+    const name = entry.kind === 'item' ? entry.item.name : entry.kind === 'gear' ? lootName(entry.drop) : entry.scroll.name;
+    const verb = entry.kind === 'gear' ? 'Who equips' : entry.kind === 'scroll' && entry.scroll.learnable ? 'Who learns' : 'Using';
     html += `${verb} ${name}${verb === 'Using' ? ' on' : ''}:<br/>` +
       choiceButtons(s.party.members.map((m, i) => [String(i + 1), m.name]));
   }
