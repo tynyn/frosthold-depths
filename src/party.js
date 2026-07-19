@@ -7,6 +7,7 @@ import {
   CLASSES, DEFAULT_PARTY, HP_BASE, HP_PER_ENDURANCE, HP_PER_LEVEL,
   SP_PER_STAT, SP_PER_LEVEL, AC_BASE, AC_PER_SPEED, XP_TO_LEVEL,
   STARTING_GOLD, STARTING_GEMS, STARTING_FOOD, SPELLS,
+  STATS, STAT_ROLL_DICE, STAT_ROLL_SIDES, STAT_ROLL_KEEP,
 } from './data.js';
 
 // WHAT: max HP for a character at their current level.
@@ -74,6 +75,42 @@ export function createCharacter({ name, cls, stats }) {
 export function createDefaultParty() {
   return {
     members: DEFAULT_PARTY.map(createCharacter),
+    gold: STARTING_GOLD,
+    gems: STARTING_GEMS,
+    food: STARTING_FOOD,
+  };
+}
+
+// WHAT: 4d6-drop-lowest, the classic stat-roll method character creation
+// exposes via an unlimited REROLL button.
+export function rollStat(rng) {
+  const rolls = Array.from({ length: STAT_ROLL_DICE }, () => rng.int(1, STAT_ROLL_SIDES));
+  rolls.sort((a, b) => b - a);
+  let total = 0;
+  for (let i = 0; i < STAT_ROLL_KEEP; i++) total += rolls[i];
+  return total;
+}
+
+export function rollAllStats(rng) {
+  const stats = {};
+  for (const stat of STATS) stats[stat] = rollStat(rng);
+  return stats;
+}
+
+// WHAT: which of a class's statMinimums (if any) the given roll falls short
+// of. WHY: character creation greys out unreachable classes and must say
+// which stat is the blocker.
+export function statShortfalls(cls, stats) {
+  const mins = CLASSES[cls].statMinimums || {};
+  return Object.entries(mins).filter(([stat, min]) => stats[stat] < min).map(([stat]) => stat);
+}
+
+// WHAT: build a fresh party from character-creation roster entries
+// ({name, cls, stats}) — the exact same createCharacter() the default party
+// uses, so there is one party model and no parallel path.
+export function createPartyFromRoster(rosterEntries) {
+  return {
+    members: rosterEntries.map(createCharacter),
     gold: STARTING_GOLD,
     gems: STARTING_GEMS,
     food: STARTING_FOOD,

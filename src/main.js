@@ -11,14 +11,17 @@ import {
   BIOME_TILESET, DUNGEON_TILESET, TOWN_TILESET, BIOME_MONSTER_TAGS, TAVERN_COSTS,
   SECRET_SEARCH_BASE_CHANCE, SECRET_SEARCH_ROBBER_BONUS,
   FPVIEW_STEP_DOLLY_MS, FPVIEW_BUMP_SHAKE_MS, FPVIEW_BUMP_SHAKE_MAGNITUDE,
-  MAGIC_SHOP_SPELL_MARKUP,
+  MAGIC_SHOP_SPELL_MARKUP, CLASSES, STATS, RANDOM_NAMES, MAX_ROSTER_SIZE, FRONT_RANK_SIZE,
 } from './data.js';
 import { RNG, hashString } from './rng.js';
 import { GridMap, turnLeft, turnRight, tryStepForward, tryStepBackward, tryMove } from './gridmap.js';
 import { renderFPView } from './fpview.js';
 import { renderAutoMap, markExplored } from './automap.js';
 import { MessageLog } from './log.js';
-import { createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, schoolFor } from './party.js';
+import {
+  createDefaultParty, isAlive, isActive, recomputeDerived, canLevelUp, schoolFor,
+  createCharacter, rollAllStats, statShortfalls, createPartyFromRoster,
+} from './party.js';
 import { spawnGroup, randomMonsterForTag, groupIsDefeated } from './monsters.js';
 import { spellsForSchool, findSpell, castSpell, canCast } from './spells.js';
 import {
@@ -46,6 +49,33 @@ const shopPanel = document.getElementById('shop-panel');
 const castPanel = document.getElementById('cast-panel');
 const overlayEl = document.getElementById('overlay');
 const touchControlsEl = document.getElementById('touch-controls');
+const menuPanel = document.getElementById('menu-panel');
+const menuDynamic = document.getElementById('menu-dynamic');
+const chargenPanel = document.getElementById('chargen-panel');
+const chargenDynamic = document.getElementById('chargen-dynamic');
+const chargenNameInput = document.getElementById('chargen-name-input');
+const partyReviewPanel = document.getElementById('party-review-panel');
+const partyReviewDynamic = document.getElementById('party-review-dynamic');
+
+const CHARGEN_CLASS_ORDER = ['Knight', 'Paladin', 'Archer', 'Cleric', 'Sorcerer', 'Robber'];
+
+// WHAT: hide every screen/panel except `keep`. WHY: MENU/CHARGEN/PARTY_REVIEW
+// share the same grid area as combat/shop/cast/overlay — exactly one is ever
+// visible, so each render* function calls this before showing its own.
+function hideAllPanelsExcept(keep) {
+  for (const el of [combatPanel, shopPanel, castPanel, overlayEl, menuPanel, chargenPanel, partyReviewPanel, mapCanvas]) {
+    if (el !== keep) el.classList.add('hidden');
+  }
+}
+
+function clearCanvasForScreen(title) {
+  ctx.fillStyle = '#05050a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#6ee7ff';
+  ctx.font = '20px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, canvas.width / 2, canvas.height / 2);
+}
 
 // WHAT: replace an element's innerHTML only when the markup actually
 // changed. WHY: render() runs every animation frame, but combat/shop/cast
@@ -86,16 +116,18 @@ function numGroupsForDepth(depth, rng) {
 function boot() {
   const seed = DEFAULT_SEED;
   const rng = new RNG(seed);
-  const party = createDefaultParty();
   const log = new MessageLog();
 
   const overworldRng = rng.fork(3);
   const overworld = generateOverworld(overworldRng.fork(1), 'Wilderness');
 
   const state = {
-    mode: 'FIELD',
+    mode: 'MENU',
     seed, rng, overworldRng,
-    party, log,
+    chargenRng: rng.fork(999), // separate stream: stat rolls/random names never disturb world gen
+    party: null,
+    chargen: null,
+    log,
     map: overworld.map,
     x: overworld.start.x, y: overworld.start.y, facing: overworld.map.entry.facing,
     overworld,
@@ -119,12 +151,23 @@ function boot() {
   Game.state = state;
 
   markExplored(state.map, state.x, state.y);
-  log.push('You stand in the wilderness. The Frosthold Depths lie somewhere below.');
-  log.push('Arrows/WASD move+turn, Space/Enter interact, M automap.');
 
   window.addEventListener('keydown', onKeyDown);
   document.body.addEventListener('click', onTouchButton);
   requestAnimationFrame(loop);
+}
+
+// WHAT: hand a finished party (premade or player-built) to the game and drop
+// into FIELD. WHY: one party model, one entry point — Quick Start and
+// Create Party's confirm step both funnel through here, nothing downstream
+// of this point knows or cares which path built the party.
+function beginAdventure(party) {
+  const s = Game.state;
+  s.party = party;
+  s.chargen = null;
+  s.mode = 'FIELD';
+  s.log.push('You stand in the wilderness. The Frosthold Depths lie somewhere below.');
+  s.log.push('Arrows/WASD move+turn, Space/Enter interact, M automap.');
 }
 
 // ---------------------------------------------------------------------------
@@ -660,6 +703,77 @@ function handleShopKey(key) {
 }
 
 // ---------------------------------------------------------------------------
+// CHARACTER CREATION — MENU / CHARGEN / PARTY_REVIEW
+// WHY: "one party model, no parallel path" — Quick Start and a finished
+// Create Party roster both end up calling beginAdventure(party) with a party
+// built by createDefaultParty()/createPartyFromRoster(), never anything else.
+// ---------------------------------------------------------------------------
+
+function freshDraft() {
+  return { stats: rollAllStats(Game.state.chargenRng), cls: null };
+}
+
+function handleMenuKey(key) {
+  if (key === '1' || key === 'quick-start') beginAdventure(createDefaultParty());
+  else if (key === '2' || key === 'create-party') startChargen();
+}
+
+function startChargen() {
+  const s = Game.state;
+  s.chargen = { roster: [], draft: freshDraft() };
+  s.mode = 'CHARGEN';
+  chargenNameInput.value = '';
+}
+
+function addDraftToRoster() {
+  const s = Game.state;
+  const cg = s.chargen;
+  if (!cg.draft.cls || cg.roster.length >= MAX_ROSTER_SIZE) return;
+  const name = chargenNameInput.value.trim() || `Recruit ${cg.roster.length + 1}`;
+  cg.roster.push({ name, cls: cg.draft.cls, stats: cg.draft.stats });
+  cg.draft = freshDraft();
+  chargenNameInput.value = '';
+  if (cg.roster.length >= MAX_ROSTER_SIZE) s.mode = 'PARTY_REVIEW';
+}
+
+function handleChargenKey(key) {
+  const s = Game.state;
+  const cg = s.chargen;
+  if (key === 'cancel-chargen' || key === 'Escape') { s.chargen = null; s.mode = 'MENU'; return; }
+  if (key === 'r' || key === 'R') {
+    cg.draft.stats = rollAllStats(s.chargenRng);
+    if (cg.draft.cls && statShortfalls(cg.draft.cls, cg.draft.stats).length) cg.draft.cls = null;
+    return;
+  }
+  if (key === 'random-name') { chargenNameInput.value = s.chargenRng.choice(RANDOM_NAMES); return; }
+  if (/^[1-6]$/.test(key)) {
+    const cls = CHARGEN_CLASS_ORDER[parseInt(key, 10) - 1];
+    if (!statShortfalls(cls, cg.draft.stats).length) cg.draft.cls = cls;
+    return;
+  }
+  if (key === 'add-to-roster') { addDraftToRoster(); return; }
+  if (key === 'finish-roster') { if (cg.roster.length >= 1) s.mode = 'PARTY_REVIEW'; return; }
+}
+
+function handlePartyReviewKey(key) {
+  const s = Game.state;
+  const cg = s.chargen;
+  const m = key.match(/^(remove|up|down)-(\d+)$/);
+  if (m) {
+    const idx = parseInt(m[2], 10);
+    if (m[1] === 'remove') cg.roster.splice(idx, 1);
+    else if (m[1] === 'up' && idx > 0) [cg.roster[idx - 1], cg.roster[idx]] = [cg.roster[idx], cg.roster[idx - 1]];
+    else if (m[1] === 'down' && idx < cg.roster.length - 1) [cg.roster[idx], cg.roster[idx + 1]] = [cg.roster[idx + 1], cg.roster[idx]];
+    return;
+  }
+  if (key === 'add-more') {
+    if (cg.roster.length < MAX_ROSTER_SIZE) { cg.draft = freshDraft(); s.mode = 'CHARGEN'; chargenNameInput.value = ''; }
+    return;
+  }
+  if (key === 'confirm-party') { if (cg.roster.length >= 1) beginAdventure(createPartyFromRoster(cg.roster)); return; }
+}
+
+// ---------------------------------------------------------------------------
 // INPUT ROUTER
 // ---------------------------------------------------------------------------
 
@@ -670,6 +784,9 @@ function handleShopKey(key) {
 // only two callers.
 function handleKey(key) {
   const s = Game.state;
+  if (s.mode === 'MENU') { handleMenuKey(key); return; }
+  if (s.mode === 'CHARGEN') { handleChargenKey(key); return; }
+  if (s.mode === 'PARTY_REVIEW') { handlePartyReviewKey(key); return; }
   if (s.mode === 'DEAD') { if (key === 'Enter' || key === ' ') restartFromTown(); return; }
   if (s.mode === 'VICTORY') { if (key === 'Enter' || key === ' ') { s.mode = 'FIELD'; } return; }
   if (s.mode === 'COMBAT') { handleCombatKey(key); return; }
@@ -690,7 +807,15 @@ function handleKey(key) {
   }
 }
 
-function onKeyDown(e) { handleKey(e.key); }
+// WHAT: ignore game-key shortcuts while a text input has focus. WHY: the
+// chargen name field shares letters (r, c, 1-6...) with movement/action
+// shortcuts — without this guard, typing a name would also reroll stats,
+// pick a class, or cast a spell.
+function onKeyDown(e) {
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+  handleKey(e.key);
+}
 
 // WHAT: one delegated click/tap listener for the whole document. WHY: every
 // on-screen control (D-pad, combat/shop/cast choice buttons, the D-pad's
@@ -833,6 +958,9 @@ function renderField() {
   shopPanel.classList.add('hidden');
   castPanel.classList.add('hidden');
   overlayEl.classList.add('hidden');
+  menuPanel.classList.add('hidden');
+  chargenPanel.classList.add('hidden');
+  partyReviewPanel.classList.add('hidden');
 }
 
 function renderCombat() {
@@ -856,6 +984,9 @@ function renderCombat() {
   shopPanel.classList.add('hidden');
   castPanel.classList.add('hidden');
   overlayEl.classList.add('hidden');
+  menuPanel.classList.add('hidden');
+  chargenPanel.classList.add('hidden');
+  partyReviewPanel.classList.add('hidden');
   combatPanel.classList.remove('hidden');
 
   const ui = s.combatUI;
@@ -921,6 +1052,9 @@ function renderShop() {
   castPanel.classList.add('hidden');
   mapCanvas.classList.add('hidden');
   overlayEl.classList.add('hidden');
+  menuPanel.classList.add('hidden');
+  chargenPanel.classList.add('hidden');
+  partyReviewPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — shop`;
 }
 
@@ -942,6 +1076,9 @@ function renderFieldCast() {
   shopPanel.classList.add('hidden');
   mapCanvas.classList.add('hidden');
   overlayEl.classList.add('hidden');
+  menuPanel.classList.add('hidden');
+  chargenPanel.classList.add('hidden');
+  partyReviewPanel.classList.add('hidden');
   hudEl.textContent = `${s.map.name} — casting`;
 }
 
@@ -952,20 +1089,117 @@ function renderOverlay(text) {
   shopPanel.classList.add('hidden');
   castPanel.classList.add('hidden');
   mapCanvas.classList.add('hidden');
+  menuPanel.classList.add('hidden');
+  chargenPanel.classList.add('hidden');
+  partyReviewPanel.classList.add('hidden');
+}
+
+// ---------------------------------------------------------------------------
+// MENU / CHARGEN / PARTY_REVIEW RENDER
+// ---------------------------------------------------------------------------
+
+function renderMenu() {
+  clearCanvasForScreen('THE FROSTHOLD DEPTHS');
+  hudEl.textContent = 'Choose how to begin';
+  const html = choiceButtons([
+    ['1', 'Quick Start — premade party of six'],
+    ['2', 'Create Party — roll your own heroes'],
+  ]);
+  setHtmlIfChanged(menuDynamic, html);
+  hideAllPanelsExcept(menuPanel);
+  menuPanel.classList.remove('hidden');
+}
+
+function renderChargen() {
+  const s = Game.state;
+  const cg = s.chargen;
+
+  clearCanvasForScreen('CREATE PARTY');
+  hudEl.textContent = `Recruiting character ${cg.roster.length + 1} of ${MAX_ROSTER_SIZE}`;
+
+  const statsHtml = STATS.map((stat) => `${stat[0].toUpperCase()}${stat.slice(1)} <b>${cg.draft.stats[stat]}</b>`).join(' &nbsp; ');
+  const total = STATS.reduce((sum, stat) => sum + cg.draft.stats[stat], 0);
+
+  const classButtons = CHARGEN_CLASS_ORDER.map((cls, i) => {
+    const info = CLASSES[cls];
+    const short = statShortfalls(cls, cg.draft.stats);
+    const schoolText = info.spellSchool ? ` — ${info.spellSchool} spells${info.spellSchoolLevel > 1 ? ` at Lv${info.spellSchoolLevel}` : ''}` : '';
+    const label = `${cls} (${info.combatRole}, d${info.hitDie} HP${schoolText})${cg.draft.cls === cls ? ' [chosen]' : ''}`;
+    return short.length ? [String(i + 1), label, `needs ${short.join(', ')}`] : [String(i + 1), label, null];
+  });
+
+  let previewHtml = '';
+  if (cg.draft.cls) {
+    const preview = createCharacter({ name: 'Preview', cls: cg.draft.cls, stats: cg.draft.stats });
+    previewHtml = `<br/>Preview — HP ${preview.maxHp}  SP ${preview.maxSp}  AC ${preview.ac}`;
+  }
+
+  const rosterHtml = cg.roster.length
+    ? `<br/>Roster so far: ${cg.roster.map((r) => `${r.name} (${r.cls})`).join(', ')}`
+    : '<br/>Roster so far: (empty)';
+
+  const html = `Rolled stats: ${statsHtml} &nbsp; Total <b>${total}</b><br/>` +
+    choiceButtons([['r', 'Reroll Stats']]) + '<br/>' +
+    classButtons.map((btn) => choiceButtons([btn])).join('') +
+    previewHtml + rosterHtml + '<br/><br/>' +
+    choiceButtons([
+      ['add-to-roster', 'Add to Party', cg.draft.cls ? null : 'choose a class first'],
+      ['finish-roster', 'Done Recruiting', cg.roster.length >= 1 ? null : 'add at least one character'],
+      ['cancel-chargen', 'Cancel'],
+    ]);
+  setHtmlIfChanged(chargenDynamic, html);
+  hideAllPanelsExcept(chargenPanel);
+  chargenPanel.classList.remove('hidden');
+}
+
+function renderPartyReview() {
+  const s = Game.state;
+  const cg = s.chargen;
+
+  clearCanvasForScreen('REVIEW PARTY');
+  hudEl.textContent = `${cg.roster.length} of ${MAX_ROSTER_SIZE} recruited — first 3 stand in the front rank`;
+
+  const rows = cg.roster.map((r, i) => {
+    const preview = createCharacter({ name: r.name, cls: r.cls, stats: r.stats });
+    const rank = i < FRONT_RANK_SIZE ? 'front' : 'back';
+    return `<div>${i + 1}. ${r.name} — ${r.cls} (${rank} rank) HP ${preview.maxHp} SP ${preview.maxSp} AC ${preview.ac} ` +
+      choiceButtons([
+        [`up-${i}`, '▲ Up', i > 0 ? null : 'already first'],
+        [`down-${i}`, '▼ Down', i < cg.roster.length - 1 ? null : 'already last'],
+        [`remove-${i}`, 'Remove', null],
+      ]) + `</div>`;
+  }).join('');
+
+  const html = rows + '<br/>' +
+    choiceButtons([
+      ['add-more', 'Recruit Another', cg.roster.length < MAX_ROSTER_SIZE ? null : 'roster is full'],
+      ['confirm-party', 'Confirm & Begin', cg.roster.length >= 1 ? null : 'need at least one character'],
+    ]);
+  setHtmlIfChanged(partyReviewDynamic, html);
+  hideAllPanelsExcept(partyReviewPanel);
+  partyReviewPanel.classList.remove('hidden');
 }
 
 function render() {
   const s = Game.state;
-  if (s.mode === 'FIELD') renderField();
+  if (s.mode === 'MENU') renderMenu();
+  else if (s.mode === 'CHARGEN') renderChargen();
+  else if (s.mode === 'PARTY_REVIEW') renderPartyReview();
+  else if (s.mode === 'FIELD') renderField();
   else if (s.mode === 'COMBAT') renderCombat();
   else if (s.mode === 'SHOP') renderShop();
   else if (s.mode === 'CAST') renderFieldCast();
   else if (s.mode === 'DEAD') renderOverlay('The party has fallen. Press Enter to awaken in town.');
   else if (s.mode === 'VICTORY') renderOverlay('Victory! The depths are conquered. Press Enter to continue.');
   touchControlsEl.classList.toggle('hidden', s.mode !== 'FIELD');
-  renderRoster();
-  logEl.textContent = s.log.recent(8).join('\n');
-  logEl.scrollTop = logEl.scrollHeight;
+  if (s.party) {
+    renderRoster();
+    logEl.textContent = s.log.recent(8).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  } else {
+    setHtmlIfChanged(rosterEl, '');
+    logEl.textContent = '';
+  }
 }
 
 function loop() {
@@ -980,4 +1214,5 @@ Game.debug = {
   verifyLevelConnectivity, verifyBossUnavoidable, generateDungeonLevel,
   setPos(x, y, facing) { Game.state.x = x; Game.state.y = y; if (facing) Game.state.facing = facing; },
   advanceTurn, dispatchSpecial, startEncounterFlow, finalizeCombatIfEnded,
+  quickStart() { beginAdventure(createDefaultParty()); },
 };

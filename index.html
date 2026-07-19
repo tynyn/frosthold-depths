@@ -74,6 +74,25 @@
     color: #ffdca8;
     font-size: 13px;
   }
+  #menu-panel, #chargen-panel, #party-review-panel {
+    grid-column: 1 / 3;
+    background: #0d1620;
+    border: 1px solid #2a4a5a;
+    padding: 10px 12px;
+    color: #cfead6;
+    font-size: 13px;
+  }
+  #menu-panel h2 { color: #6ee7ff; letter-spacing: 2px; margin: 4px 0 12px; }
+  .chargen-name-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .chargen-name-row label { color: #6ee7ff; }
+  #chargen-name-input {
+    background: #10141a; border: 1px solid #2a4a5a; color: #cfead6;
+    font-family: inherit; font-size: 14px; padding: 8px 10px; border-radius: 4px;
+    min-height: 40px; min-width: 180px;
+  }
+  #party-review-panel > div { padding: 4px 0; border-bottom: 1px solid #1c2731; }
   #overlay {
     grid-column: 1/3;
     background: #000;
@@ -185,6 +204,21 @@
         <button type="button" class="tc-btn tc-action" data-key="m">Map</button>
         <button type="button" class="tc-btn tc-action" data-key="c">Cast</button>
       </div>
+    </div>
+    <div id="menu-panel" class="hidden">
+      <h2>THE FROSTHOLD DEPTHS</h2>
+      <div id="menu-dynamic"></div>
+    </div>
+    <div id="chargen-panel" class="hidden">
+      <div class="chargen-name-row">
+        <label for="chargen-name-input">Name:</label>
+        <input type="text" id="chargen-name-input" maxlength="20" autocomplete="off" placeholder="Character name" />
+        <button type="button" class="choice-btn" data-key="random-name">Random Name</button>
+      </div>
+      <div id="chargen-dynamic"></div>
+    </div>
+    <div id="party-review-panel" class="hidden">
+      <div id="party-review-dynamic"></div>
     </div>
     <div id="combat-panel" class="hidden"></div>
     <div id="shop-panel" class="hidden"></div>

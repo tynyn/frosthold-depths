@@ -52,30 +52,39 @@ export const STATS = ['might', 'intellect', 'personality', 'endurance', 'speed',
 // access to its spellSchool (and starts casting/learning at all). Pure
 // casters get it from level 1; hybrids (Paladin, Archer) get it delayed;
 // Knight/Robber never gain a school (spellSchool: null).
+// statMinimums: rolled-stat floors (4d6-drop-lowest, range 3-18) character
+// creation checks before letting a class be chosen; a class with no entry
+// for a stat has no floor on it.
 export const CLASSES = {
   Knight: {
     name: 'Knight', hitDie: 10, spellSchool: null, combatRole: 'melee',
     statMods: { might: 3, endurance: 2, accuracy: 1, intellect: -2, personality: -2 },
+    statMinimums: { might: 9 },
   },
   Paladin: {
     name: 'Paladin', hitDie: 9, spellSchool: 'cleric', spellSchoolLevel: 3, combatRole: 'melee',
     statMods: { might: 2, endurance: 1, personality: 1 },
+    statMinimums: { might: 8, personality: 8 },
   },
   Archer: {
     name: 'Archer', hitDie: 8, spellSchool: 'sorcerer', spellSchoolLevel: 4, combatRole: 'ranged',
     statMods: { accuracy: 3, speed: 2, might: -1 },
+    statMinimums: { accuracy: 9 },
   },
   Cleric: {
     name: 'Cleric', hitDie: 7, spellSchool: 'cleric', spellSchoolLevel: 1, combatRole: 'support',
     statMods: { personality: 3, endurance: 1, might: -2 },
+    statMinimums: { personality: 9 },
   },
   Sorcerer: {
     name: 'Sorcerer', hitDie: 6, spellSchool: 'sorcerer', spellSchoolLevel: 1, combatRole: 'caster',
     statMods: { intellect: 3, luck: 1, endurance: -2, might: -2 },
+    statMinimums: { intellect: 9 },
   },
   Robber: {
     name: 'Robber', hitDie: 8, spellSchool: null, combatRole: 'skill',
     statMods: { luck: 3, speed: 2, accuracy: 1, personality: -2 },
+    statMinimums: { luck: 9 },
   },
 };
 
@@ -98,6 +107,20 @@ export const TRAINING_GOLD_PER_LEVEL = 150;
 export const STARTING_GOLD = 400;
 export const STARTING_GEMS = 5;
 export const STARTING_FOOD = 20;
+
+// WHAT: 4d6-drop-lowest stat rolling knobs for character creation.
+export const STAT_ROLL_DICE = 4;
+export const STAT_ROLL_SIDES = 6;
+export const STAT_ROLL_KEEP = 3;
+
+export const MAX_ROSTER_SIZE = 6;
+
+// WHAT: candidate names for character creation's "random name" button.
+export const RANDOM_NAMES = [
+  'Aldric', 'Branwen', 'Corwin', 'Delia', 'Edric', 'Freya', 'Gareth', 'Hilda',
+  'Ivor', 'Junia', 'Kestrel', 'Lysander', 'Mira', 'Nolan', 'Orla', 'Percival',
+  'Quenna', 'Roderick', 'Sable', 'Torvald', 'Ulrica', 'Varek', 'Wren', 'Yseult',
+];
 
 export const DEFAULT_PARTY = [
   { name: 'Harkon', cls: 'Knight', stats: { might: 15, intellect: 6, personality: 6, endurance: 14, speed: 9, accuracy: 11, luck: 9 } },
