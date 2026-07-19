@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>THE FROSTHOLD DEPTHS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2305050a'/%3E%3Ctext x='2' y='12' font-size='10' fill='%236ee7ff'%3E%E2%9D%84%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="theme-color" content="#05050a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Frosthold" />
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -235,5 +241,13 @@
        classic (non-module) script so the game runs via file:// with no
        server, in any browser. Edit src/, then: node tools/build-bundle.mjs -->
   <script src="dist/bundle.js"></script>
+  <script>
+    // Registration only succeeds over http(s) (service workers require a
+    // secure context) — under file:// this silently no-ops rather than
+    // throwing, so the no-server play mode is unaffected.
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>
