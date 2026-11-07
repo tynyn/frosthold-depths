@@ -1,0 +1,3 @@
+# Claude Code personal settings. "Don't ask again" approvals are saved here
+# word for word, so they can contain passwords or tokens. Keep it local.
+**/.claude/settings.local.json
